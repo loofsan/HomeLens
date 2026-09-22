@@ -83,7 +83,3 @@ The same checks run in GitHub Actions for pull requests on Python 3.12 and 3.13.
 3. Add neighborhood, Census, Places, Street View, and solar adapters.
 4. Build reproducible valuation baselines, evaluations, and versioned inference.
 5. Add structured AI search and descriptions with regression evaluations.
-
-No downloaded dataset is needed for this skeleton. Raw data, generated data,
-model artifacts, and secrets stay out of Git. Dataset acquisition is tracked in
-[issue #2](https://github.com/loofsan/HomeLens/issues/2).
