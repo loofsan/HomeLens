@@ -92,10 +92,23 @@ To audit the local crime and ACS exports without publishing incident records:
 The ignored `data/processed/neighborhood_inventory.json` records source hashes,
 schema and date quality, duplicate-export checks, geometry coverage, and ACS
 geographies. The supplied crime GeoJSON is a non-spatial copy of the crime
-table; it cannot be joined to homes or ZIPs. The supplied DP05 export contains
-United States figures only, not Durham demographics. Neither source currently
-supports neighborhood-level facts. Additional 2023 DP05 CSV exports can be
-placed alongside the original file; the audit checks every matching export.
+table; it cannot be joined to homes or ZIPs. The original DP05 export contains
+United States figures; a separate Durham County export is also available.
+Neither source currently supports neighborhood-level facts. Additional 2023
+DP05 CSV exports can be placed alongside the original file; the audit checks
+every matching export.
+
+To prepare a county-only context summary from the Durham 2023 ACS 1-year DP05
+export:
+
+```powershell
+.venv\Scripts\python -m homelens.data.acs_county
+```
+
+The ignored `data/processed/acs_county_context.json` contains selected
+population, age, and housing-unit estimates with margins of error and explicit
+unavailable values. It is Durham County context only, not a ZIP-level measure
+or a property/model feature.
 
 To prepare the first residential modeling cohort and its audit:
 
