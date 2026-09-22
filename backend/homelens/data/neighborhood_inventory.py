@@ -41,11 +41,11 @@ CRIME_TEXT_COLUMNS = CRIME_COLUMNS + (
 )
 
 
-def _one_acs_file(raw_dir: Path) -> Path:
+def _acs_files(raw_dir: Path) -> list[Path]:
     matches = sorted(raw_dir.glob(ACS_PATTERN))
-    if len(matches) != 1:
-        raise ValueError(f"Expected one {ACS_PATTERN} file; found {len(matches)}")
-    return matches[0]
+    if not matches:
+        raise ValueError(f"Expected at least one {ACS_PATTERN} file")
+    return matches
 
 
 def _read_geojson(path: Path) -> tuple[dict[str, Any], pd.DataFrame]:
@@ -111,12 +111,10 @@ def _matching_fields(csv_data: pd.DataFrame, geo_data: pd.DataFrame) -> dict[str
 def inspect_neighborhood_sources(raw_dir: Path) -> dict[str, Any]:
     csv_path = raw_dir / CRIME_CSV
     geo_path = raw_dir / CRIME_GEOJSON
-    acs_path = _one_acs_file(raw_dir)
     crime = _read_csv(csv_path, CRIME_TEXT_COLUMNS)
     _require_columns(crime, csv_path, CRIME_COLUMNS)
     document, properties = _read_geojson(geo_path)
-    acs = _read_csv(acs_path, ("Label (Grouping)",))
-    _require_columns(acs, acs_path, ("Label (Grouping)",))
+    acs_files = _acs_files(raw_dir)
 
     dates = pd.to_datetime(
         crime["DATE_REPT"], format="%Y/%m/%d %H:%M:%S%z", utc=True, errors="coerce"
@@ -127,10 +125,22 @@ def inspect_neighborhood_sources(raw_dir: Path) -> dict[str, Any]:
     geo_ids = _ids(properties)
     features = document["features"]
     geometry_present = sum(item.get("geometry") is not None for item in features)
-    geography_labels = sorted(
-        {name.split("!!", 1)[0].strip() for name in acs.columns[1:] if "!!" in name}
-    )
-    durham_present = "Durham County, North Carolina" in geography_labels
+    acs_reports: dict[str, dict[str, Any]] = {}
+    all_geographies: set[str] = set()
+    for acs_path in acs_files:
+        acs = _read_csv(acs_path, ("Label (Grouping)",))
+        _require_columns(acs, acs_path, ("Label (Grouping)",))
+        geographies = sorted(
+            {name.split("!!", 1)[0].strip() for name in acs.columns[1:] if "!!" in name}
+        )
+        all_geographies.update(geographies)
+        acs_reports[acs_path.name] = {
+            **_file_identity(acs_path),
+            "rows": len(acs),
+            "column_names": list(acs.columns),
+            "geographies": geographies,
+        }
+    durham_present = "Durham County, North Carolina" in all_geographies
 
     crime_report = _base_report(crime)
     crime_report.update(_file_identity(csv_path))
@@ -174,13 +184,6 @@ def inspect_neighborhood_sources(raw_dir: Path) -> dict[str, Any]:
         and geo_ids.nunique() == len(geo_ids)
         and set(csv_ids.dropna()) == set(geo_ids.dropna())
     )
-    acs_report = {
-        **_file_identity(acs_path),
-        "rows": len(acs),
-        "column_names": list(acs.columns),
-        "geographies": geography_labels,
-        "durham_county_present": durham_present,
-    }
     return {
         "crime_csv": crime_report,
         "crime_geojson": geo_report,
@@ -194,7 +197,11 @@ def inspect_neighborhood_sources(raw_dir: Path) -> dict[str, Any]:
                 and all(count == 0 for count in mismatch_counts.values())
             ),
         },
-        "acs_dp05": acs_report,
+        "acs_dp05": {
+            "files": acs_reports,
+            "geographies": sorted(all_geographies),
+            "durham_county_present": durham_present,
+        },
         "readiness": {
             "crime_has_any_geometry": geometry_present > 0,
             "durham_demographics_present": durham_present,

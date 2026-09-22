@@ -111,5 +111,24 @@ def test_audit_rejects_missing_acs_export(tmp_path: Path) -> None:
     _sources(raw_dir)
     (raw_dir / "ACSDP1Y2023.DP05-export.csv").unlink()
 
-    with pytest.raises(ValueError, match="Expected one ACSDP1Y2023.DP05"):
+    with pytest.raises(ValueError, match="Expected at least one ACSDP1Y2023.DP05"):
         inspect_neighborhood_sources(raw_dir)
+
+
+def test_audit_accepts_durham_export_alongside_national_export(tmp_path: Path) -> None:
+    raw_dir = tmp_path / "raw"
+    _sources(raw_dir)
+    (raw_dir / "ACSDP1Y2023.DP05-Durham.csv").write_text(
+        'Label (Grouping),"Durham County, North Carolina!!Estimate"\n'
+        "Total population,100\n",
+        encoding="utf-8",
+    )
+
+    report = inspect_neighborhood_sources(raw_dir)
+
+    assert len(report["acs_dp05"]["files"]) == 2
+    assert report["acs_dp05"]["geographies"] == [
+        "Durham County, North Carolina",
+        "United States",
+    ]
+    assert report["readiness"]["durham_demographics_present"] is True

@@ -94,7 +94,8 @@ schema and date quality, duplicate-export checks, geometry coverage, and ACS
 geographies. The supplied crime GeoJSON is a non-spatial copy of the crime
 table; it cannot be joined to homes or ZIPs. The supplied DP05 export contains
 United States figures only, not Durham demographics. Neither source currently
-supports neighborhood-level facts.
+supports neighborhood-level facts. Additional 2023 DP05 CSV exports can be
+placed alongside the original file; the audit checks every matching export.
 
 To prepare the first residential modeling cohort and its audit:
 
