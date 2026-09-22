@@ -105,6 +105,11 @@ The ignored report at `data/processed/baseline_report.json` compares a training
 median with a fixed tabular model on the temporal validation and test splits.
 It reports errors by ZIP and property type. The results apply to the selected
 study ZIPs, not to a verified county-wide population.
+The report also includes training-defined price bands, aggregate ZIP/property
+type intersections, and the share of error carried by the largest residuals.
+Intersections below 30 sales report counts only. Positive signed error means
+overprediction; negative signed error means underprediction. The 2025 test
+split is descriptive and must not be used to tune a model.
 
 ## Next slices
 

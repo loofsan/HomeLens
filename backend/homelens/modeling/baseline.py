@@ -89,10 +89,12 @@ def _features(frame: pd.DataFrame, categories: dict[str, list[str]]) -> pd.DataF
 
 
 def _metrics(actual: pd.Series[Any], predicted: np.ndarray[Any, Any]) -> dict[str, Any]:
-    absolute_errors = np.abs(actual.to_numpy(dtype=float) - predicted)
+    signed_errors = predicted - actual.to_numpy(dtype=float)
+    absolute_errors = np.abs(signed_errors)
     return {
         "rows": len(actual),
         "small_slice": len(actual) < SMALL_SLICE_MIN_ROWS,
+        "mean_signed_error_usd": round(float(np.mean(signed_errors)), 2),
         "mae_usd": round(float(mean_absolute_error(actual, predicted)), 2),
         "rmse_usd": round(float(root_mean_squared_error(actual, predicted)), 2),
         "median_absolute_error_usd": round(
@@ -102,19 +104,116 @@ def _metrics(actual: pd.Series[Any], predicted: np.ndarray[Any, Any]) -> dict[st
     }
 
 
-def _evaluation(frame: pd.DataFrame, predicted: np.ndarray[Any, Any]) -> dict[str, Any]:
+def _diagnostic_slice(
+    group: pd.DataFrame, total_absolute_error: float, total_squared_error: float
+) -> dict[str, Any]:
+    if len(group) < SMALL_SLICE_MIN_ROWS:
+        return {"rows": len(group), "small_slice": True}
+    absolute_errors = pd.Series(
+        np.abs(group["prediction"].to_numpy() - group["price_usd"].to_numpy()),
+        index=group.index,
+    )
+    result = _metrics(group["price_usd"], group["prediction"].to_numpy())
+    result["share_absolute_error"] = round(
+        float(absolute_errors.sum() / total_absolute_error)
+        if total_absolute_error
+        else 0.0,
+        4,
+    )
+    result["share_squared_error"] = round(
+        float(absolute_errors.pow(2).sum() / total_squared_error)
+        if total_squared_error
+        else 0.0,
+        4,
+    )
+    return result
+
+
+def _evaluation(
+    frame: pd.DataFrame,
+    predicted: np.ndarray[Any, Any],
+    training_price_quantiles: tuple[float, float],
+) -> dict[str, Any]:
     scored = frame.copy()
     scored["prediction"] = predicted
+    p50, p90 = training_price_quantiles
+    scored["training_price_band"] = np.where(
+        scored["price_usd"] <= p50,
+        "at_or_below_train_p50",
+        np.where(
+            scored["price_usd"] <= p90,
+            "train_p50_to_p90",
+            "above_train_p90",
+        ),
+    )
+    absolute_errors = pd.Series(
+        np.abs(scored["prediction"].to_numpy() - scored["price_usd"].to_numpy()),
+        index=scored.index,
+    )
+    total_absolute_error = float(absolute_errors.sum())
+    total_squared_error = float(absolute_errors.pow(2).sum())
     by_column: dict[str, dict[str, Any]] = {}
     for column in ("zip", "property_type"):
         by_column[column] = {
             str(value): _metrics(group["price_usd"], group["prediction"].to_numpy())
             for value, group in scored.groupby(column, sort=True)
         }
+    by_price_band = {
+        str(value): _diagnostic_slice(group, total_absolute_error, total_squared_error)
+        for value, group in scored.groupby("training_price_band", sort=True)
+    }
+    by_zip_and_type = [
+        {
+            "zip": str(zip_code),
+            "property_type": str(property_type),
+            **_diagnostic_slice(group, total_absolute_error, total_squared_error),
+        }
+        for (zip_code, property_type), group in scored.groupby(
+            ["zip", "property_type"], sort=True
+        )
+    ]
+    by_zip_type_and_price_band = [
+        {
+            "zip": str(zip_code),
+            "property_type": str(property_type),
+            "training_price_band": str(price_band),
+            **_diagnostic_slice(group, total_absolute_error, total_squared_error),
+        }
+        for (zip_code, property_type, price_band), group in scored.groupby(
+            ["zip", "property_type", "training_price_band"], sort=True
+        )
+    ]
+    if len(scored) < SMALL_SLICE_MIN_ROWS:
+        concentration: dict[str, Any] = {
+            "rows": len(scored),
+            "small_slice": True,
+        }
+    else:
+        top_count = max(1, int(np.ceil(len(scored) * 0.05)))
+        top_errors = absolute_errors.nlargest(top_count)
+        concentration = {
+            "top_5pct_rows": top_count,
+            "share_absolute_error": round(
+                float(top_errors.sum() / total_absolute_error)
+                if total_absolute_error
+                else 0.0,
+                4,
+            ),
+            "share_squared_error": round(
+                float(top_errors.pow(2).sum() / total_squared_error)
+                if total_squared_error
+                else 0.0,
+                4,
+            ),
+        }
     return {
         "overall": _metrics(scored["price_usd"], predicted),
         "by_zip": by_column["zip"],
         "by_property_type": by_column["property_type"],
+        "by_training_price_band": by_price_band,
+        "by_zip_and_property_type": by_zip_and_type,
+        "by_zip_property_type_and_training_price_band": by_zip_type_and_price_band,
+        "error_concentration": concentration,
     }
 
 
@@ -132,6 +231,10 @@ def evaluate_baselines(
     }
     train_features = _features(splits["train"], categories)
     train_target = splits["train"]["price_usd"]
+    training_price_quantiles = (
+        float(train_target.quantile(0.5)),
+        float(train_target.quantile(0.9)),
+    )
     median_model = DummyRegressor(strategy="median")
     median_model.fit(np.zeros((len(train_features), 1)), train_target)
     gradient_model = HistGradientBoostingRegressor(**MODEL_CONFIG)
@@ -144,10 +247,14 @@ def evaluate_baselines(
     for split in ("validation", "test"):
         subset = splits[split]
         evaluations["training_median"][split] = _evaluation(
-            subset, median_model.predict(np.zeros((len(subset), 1)))
+            subset,
+            median_model.predict(np.zeros((len(subset), 1))),
+            training_price_quantiles,
         )
         evaluations["hist_gradient_boosting"][split] = _evaluation(
-            subset, gradient_model.predict(_features(subset, categories))
+            subset,
+            gradient_model.predict(_features(subset, categories)),
+            training_price_quantiles,
         )
 
     return {
@@ -165,6 +272,10 @@ def evaluate_baselines(
             for name, rows in splits.items()
         },
         "training_median_usd": round(float(train_target.median()), 2),
+        "training_price_quantiles_usd": {
+            "p50": round(training_price_quantiles[0], 2),
+            "p90": round(training_price_quantiles[1], 2),
+        },
         "model_config": MODEL_CONFIG,
         "small_slice_min_rows": SMALL_SLICE_MIN_ROWS,
         "scikit_learn_version": sklearn.__version__,
