@@ -9,7 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import shapely
 
+from .boundary import load_county_boundary
 from .inventory import (
     REDFIN_COLUMNS,
     _file_identity,
@@ -64,10 +66,30 @@ def _date_range(frame: pd.DataFrame) -> list[str | None]:
     return [str(frame["sale_date"].min()), str(frame["sale_date"].max())]
 
 
+def _keep_inside_county(
+    frame: pd.DataFrame, raw_dir: Path, rejected: dict[str, int]
+) -> tuple[pd.DataFrame, dict[str, str | int]]:
+    boundary_path = raw_dir / "durham_county_boundary.geojson"
+    boundary = load_county_boundary(boundary_path)
+    latitudes = pd.to_numeric(frame["LATITUDE"], errors="coerce")
+    longitudes = pd.to_numeric(frame["LONGITUDE"], errors="coerce")
+    usable = latitudes.between(33, 37) & longitudes.between(-85, -75)
+    frame = _keep(frame, usable, rejected, "unusable_coordinates")
+    shapely.prepare(boundary)
+    points = shapely.points(
+        longitudes.loc[frame.index].to_numpy(dtype=float),
+        latitudes.loc[frame.index].to_numpy(dtype=float),
+    )
+    inside = pd.Series(shapely.covers(boundary, points), index=frame.index)
+    frame = _keep(frame, inside, rejected, "outside_county")
+    return frame, _file_identity(boundary_path)
+
+
 def prepare_sales(
     raw_dir: Path,
     validation_start: date = DEFAULT_VALIDATION_START,
     test_start: date = DEFAULT_TEST_START,
+    county_verified_study_zips: bool = False,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     if validation_start >= test_start:
         raise ValueError("validation start must be before test start")
@@ -75,6 +97,8 @@ def prepare_sales(
     path = raw_dir / "redfin_data.csv"
     source = _read_csv(path, ("ZIP OR POSTAL CODE", "MLS#"))
     _require_columns(source, path, (*REDFIN_COLUMNS, "SALE TYPE", "STATE OR PROVINCE"))
+    if county_verified_study_zips:
+        _require_columns(source, path, ("LATITUDE", "LONGITUDE"))
     rejected: dict[str, int] = {}
     frame = source.drop_duplicates().copy()
     rejected["exact_duplicates"] = len(source) - len(frame)
@@ -141,6 +165,9 @@ def prepare_sales(
         & frame["YEAR BUILT"].mod(1).eq(0)
     )
     frame = _keep(frame, plausible, rejected, "implausible_core_features")
+    boundary_source = None
+    if county_verified_study_zips:
+        frame, boundary_source = _keep_inside_county(frame, raw_dir, rejected)
 
     prepared = frame.rename(
         columns={
@@ -186,30 +213,40 @@ def prepare_sales(
         "rules": {
             "property_types": list(RESIDENTIAL_TYPES),
             "study_zips": list(STUDY_ZIPS),
-            "geography_scope": "selected ZIPs, not a county-boundary check",
+            "geography_scope": (
+                "selected ZIPs inside Durham County boundary"
+                if county_verified_study_zips
+                else "selected ZIPs, not a county-boundary check"
+            ),
             "minimum_square_feet": 300,
             "minimum_year_built": 1800,
             "year_built_must_not_exceed_sale_year": True,
             "positive_price_required": True,
             "high_price_cap": None,
             "zip_history_values_joined": False,
-            "county_boundary_validated": False,
+            "county_boundary_validated": county_verified_study_zips,
             "exact_duplicates_only": True,
             "target_derived_field_excluded": "$/SQUARE FEET",
         },
     }
+    if boundary_source is not None:
+        report["boundary_source_identity"] = boundary_source
+        report["rules"]["county_boundary_points_count_as_inside"] = True
+        report["rules"]["plausible_coordinate_bounds_lon_lat"] = [
+            -85,
+            33,
+            -75,
+            37,
+        ]
     return prepared, report
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Prepare HomeLens residential sales")
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
-    parser.add_argument(
-        "--output", type=Path, default=Path("data/processed/modeling_cohort.csv")
-    )
-    parser.add_argument(
-        "--audit", type=Path, default=Path("data/processed/modeling_cohort_audit.json")
-    )
+    parser.add_argument("--county-verified-study-zips", action="store_true")
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--audit", type=Path)
     parser.add_argument(
         "--validation-start", type=date.fromisoformat, default=DEFAULT_VALIDATION_START
     )
@@ -219,18 +256,28 @@ def main() -> int:
     args = parser.parse_args()
     try:
         prepared, report = prepare_sales(
-            args.raw_dir, args.validation_start, args.test_start
+            args.raw_dir,
+            args.validation_start,
+            args.test_start,
+            county_verified_study_zips=args.county_verified_study_zips,
         )
     except (FileNotFoundError, ValueError, pd.errors.ParserError) as exc:
         parser.error(str(exc))
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.audit.parent.mkdir(parents=True, exist_ok=True)
-    prepared.to_csv(args.output, index=False)
-    args.audit.write_text(
+    stem = (
+        "modeling_cohort_county_verified"
+        if args.county_verified_study_zips
+        else "modeling_cohort"
+    )
+    output = args.output or Path(f"data/processed/{stem}.csv")
+    audit_path = args.audit or Path(f"data/processed/{stem}_audit.json")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    prepared.to_csv(output, index=False)
+    audit_path.write_text(
         json.dumps(report, indent=2, allow_nan=False) + "\n", encoding="utf-8"
     )
-    print(f"Wrote {len(prepared)} rows to {args.output} and audit to {args.audit}")
+    print(f"Wrote {len(prepared)} rows to {output} and audit to {audit_path}")
     return 0
 
 

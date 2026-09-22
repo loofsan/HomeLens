@@ -151,9 +151,9 @@ The command writes an aggregate, ignored report to
 For the supplied sources, 18,117 of 18,400 deduplicated historical sales with
 usable coordinates are inside the boundary. The eight-ZIP rule includes 276
 outside-county sales and excludes 55 inside-county sales. This comparison covers
-historical sales broadly, not just the prepared residential cohort. The current
-cohort remains ZIP-based and must not be presented as county-wide; a future
-county-based cohort would need separate preparation and model evaluation.
+historical sales broadly, not just the prepared residential cohort. The
+original cohort remains ZIP-based; its estimates must not be presented as
+county-wide.
 
 To evaluate the first offline valuation baselines after preparation:
 
@@ -191,6 +191,26 @@ high-price validation sales and is not approved for inference. Because 2024
 validation also selected the model, this interval check is diagnostic rather
 than an independent coverage guarantee. This workflow does not produce a
 deployable model artifact.
+
+The executed `notebooks/county_cohort_validation.ipynb` compares the original
+ZIP cohort, a broad county cohort, and the eight study ZIPs restricted to the
+county polygon. It records aggregate exclusions, ZIP-label conflicts, split
+counts, and 2024 validation error slices. The 2025 split appears as counts only.
+The selected procedure keeps the study ZIPs inside Durham County; the 47
+inside-county sales with other ZIP labels remain diagnostic because only 8 are
+in 2024 validation.
+
+To reproduce the selected county-verified cohort and its fixed-model comparison:
+
+```powershell
+.venv\Scripts\python -m homelens.data.prepare --county-verified-study-zips
+.venv\Scripts\python -m homelens.modeling.county_comparison
+```
+
+These commands write ignored county-cohort and comparison reports under
+`data/processed`. The comparison uses 2024 validation for the geography check
+and reports the selected model's 2025 test performance descriptively. The
+selected geography is a verified subset of Durham County, not the whole county.
 
 ## Next slices
 
