@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import shapely
 
-from homelens.domain.property import HistoricalSale
+from homelens.domain.property import CATALOG_SCHEMA_VERSION, HistoricalSale
 
 from .boundary import load_county_boundary
 from .inventory import (
@@ -32,7 +32,7 @@ SOURCE_URL_COLUMN = (
     "URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis "
     "FOR INFO ON PRICING)"
 )
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = CATALOG_SCHEMA_VERSION
 
 
 def _keep(

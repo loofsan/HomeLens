@@ -69,7 +69,18 @@ record has a stable ID, sale date and price, home attributes, address, ZIP,
 coordinates, optional validated Redfin URL, and a fixed `historical_sale` kind.
 Re-running the import replaces the local snapshot transactionally. This catalog
 is separate from the eight-ZIP modeling cohort; it is not an active-listing
-service or a deployable data feed. Search endpoints will be added separately.
+service or a deployable data feed.
+
+After importing, `GET /api/properties` searches the local historical sales.
+Optional filters are `min_price`, `max_price`, `min_beds`, `min_baths`, `zip`,
+and a complete `south`, `west`, `north`, `east` map rectangle. `page` starts at 1;
+`page_size` defaults to 20 and is capped at 100. Results are ordered by sale
+date (newest first) and stable record ID. `GET /api/properties/<id>` returns a
+single sale or 404. Both successful responses include source vintage and
+`active_listings: false`; each property has `record_kind: historical_sale` and a
+sale date. Invalid filters return 400 with a structured field error. If the
+local catalog is missing or incompatible, property routes return 503 without
+affecting `/api/health`.
 
 ## Local development
 
