@@ -83,9 +83,17 @@ To reproduce the local data inventory and exploratory profile:
 .venv\Scripts\python -m homelens.data.eda
 ```
 
-These commands read the CSVs in `data/raw` and write ignored JSON reports to
-`data/processed`. The ZIP-level price-history metric is not yet verified, so
-the profile treats it separately from recorded property sale prices.
+To prepare the first residential modeling cohort and its audit:
+
+```powershell
+.venv\Scripts\python -m homelens.data.prepare
+```
+
+These commands read the CSVs in `data/raw` and write ignored outputs to
+`data/processed`. The initial cohort uses three residential property types and
+eight selected ZIPs, with training sales before 2024, validation sales in 2024,
+and a partial-year 2025 test set. It is not a county-boundary validation. The
+ZIP-level price-history metric is unverified and is not joined to the cohort.
 
 ## Next slices
 
