@@ -2,8 +2,8 @@
 
 HomeLens is a rebuild of the Google Realtor housing research prototype. The
 original combined home search, neighborhood context, price forecasts, solar
-analysis, and AI-assisted questions. This repository begins with the backend;
-the interface and data-driven features will be added in later issues.
+analysis, and AI-assisted questions. The current application searches a local
+catalog of historical Durham County sales; it does not show active listings.
 
 ## Architecture
 
@@ -81,6 +81,41 @@ single sale or 404. Both successful responses include source vintage and
 sale date. Invalid filters return 400 with a structured field error. If the
 local catalog is missing or incompatible, property routes return 503 without
 affecting `/api/health`.
+
+## Historical sale interface
+
+The React/Vite interface searches the local catalog with price, beds, baths,
+and ZIP filters. It synchronizes the result list with a map using supplied
+coordinates, supports searching the visible map area, and shows responsive
+sale details. It labels every result as historical and does not present these
+records as available homes. Start the Flask API as described below, then in a
+second PowerShell window run:
+
+```powershell
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Open `http://127.0.0.1:5173`. Node.js 24 and pnpm 11 are required. The
+development server proxies `/api` to Flask on port 5000. Map tiles default to
+[OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/) with
+visible attribution; set `VITE_MAP_TILE_URL` to a compatible tile URL if using
+another provider. For a production deployment, choose a tile provider and
+follow its usage terms.
+
+For the frontend build and browser tests:
+
+```powershell
+cd frontend
+pnpm run build
+pnpm exec playwright install chromium
+pnpm run test:e2e
+```
+
+The E2E tests stub API and tile responses, so they do not require the private
+catalog or contact the public tile server. Frontend checks run in GitHub
+Actions on pull requests.
 
 ## Local development
 

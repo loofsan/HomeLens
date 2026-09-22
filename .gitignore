@@ -180,3 +180,9 @@ pyrightconfig.json
 data/raw/*
 data/processed/*
 models/*
+
+# Frontend build and browser-test output
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
