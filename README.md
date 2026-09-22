@@ -76,6 +76,17 @@ Run the quality checks with:
 
 The same checks run in GitHub Actions for pull requests on Python 3.12 and 3.13.
 
+To reproduce the local data inventory and exploratory profile:
+
+```powershell
+.venv\Scripts\python -m homelens.data.inventory
+.venv\Scripts\python -m homelens.data.eda
+```
+
+These commands read the CSVs in `data/raw` and write ignored JSON reports to
+`data/processed`. The ZIP-level price-history metric is not yet verified, so
+the profile treats it separately from recorded property sale prices.
+
 ## Next slices
 
 1. Establish the property data contract and import a permitted dataset.
