@@ -95,6 +95,17 @@ eight selected ZIPs, with training sales before 2024, validation sales in 2024,
 and a partial-year 2025 test set. It is not a county-boundary validation. The
 ZIP-level price-history metric is unverified and is not joined to the cohort.
 
+To evaluate the first offline valuation baselines after preparation:
+
+```powershell
+.venv\Scripts\python -m homelens.modeling.baseline
+```
+
+The ignored report at `data/processed/baseline_report.json` compares a training
+median with a fixed tabular model on the temporal validation and test splits.
+It reports errors by ZIP and property type. The results apply to the selected
+study ZIPs, not to a verified county-wide population.
+
 ## Next slices
 
 1. Establish the property data contract and import a permitted dataset.
