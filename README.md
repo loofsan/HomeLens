@@ -83,6 +83,33 @@ To reproduce the local data inventory and exploratory profile:
 .venv\Scripts\python -m homelens.data.eda
 ```
 
+To audit the local crime and ACS exports without publishing incident records:
+
+```powershell
+.venv\Scripts\python -m homelens.data.neighborhood_inventory
+```
+
+The ignored `data/processed/neighborhood_inventory.json` records source hashes,
+schema and date quality, duplicate-export checks, geometry coverage, and ACS
+geographies. The supplied crime GeoJSON is a non-spatial copy of the crime
+table; it cannot be joined to homes or ZIPs. The original DP05 export contains
+United States figures; a separate Durham County export is also available.
+Neither source currently supports neighborhood-level facts. Additional 2023
+DP05 CSV exports can be placed alongside the original file; the audit checks
+every matching export.
+
+To prepare a county-only context summary from the Durham 2023 ACS 1-year DP05
+export:
+
+```powershell
+.venv\Scripts\python -m homelens.data.acs_county
+```
+
+The ignored `data/processed/acs_county_context.json` contains selected
+population, age, and housing-unit estimates with margins of error and explicit
+unavailable values. It is Durham County context only, not a ZIP-level measure
+or a property/model feature.
+
 To prepare the first residential modeling cohort and its audit:
 
 ```powershell
@@ -95,8 +122,9 @@ eight selected ZIPs, with training sales before 2024, validation sales in 2024,
 and a partial-year 2025 test set. It is not a county-boundary validation. The
 ZIP-level price-history metric is unverified and is not joined to the cohort.
 
-To audit the selected ZIPs against the Durham County boundary, place a WGS84
-GeoJSON boundary at `data/raw/durham_county_boundary.geojson` and run:
+To audit the selected ZIPs against the [Durham County Boundary layer](https://webgis.durhamnc.gov/server/rest/services/PublicServices/Administrative/MapServer/2),
+query its geometry as WGS84 GeoJSON, place the resulting polygon at
+`data/raw/durham_county_boundary.geojson`, and run:
 
 ```powershell
 .venv\Scripts\python -m homelens.data.geography
@@ -104,6 +132,49 @@ GeoJSON boundary at `data/raw/durham_county_boundary.geojson` and run:
 
 The command writes an aggregate, ignored report to
 `data/processed/geography_audit.json`; it does not alter the prepared cohort.
+For the supplied sources, 18,117 of 18,400 deduplicated historical sales with
+usable coordinates are inside the boundary. The eight-ZIP rule includes 276
+outside-county sales and excludes 55 inside-county sales. This comparison covers
+historical sales broadly, not just the prepared residential cohort. The current
+cohort remains ZIP-based and must not be presented as county-wide; a future
+county-based cohort would need separate preparation and model evaluation.
+
+To evaluate the first offline valuation baselines after preparation:
+
+```powershell
+.venv\Scripts\python -m homelens.modeling.baseline
+```
+
+The ignored report at `data/processed/baseline_report.json` compares a training
+median with a fixed tabular model on the temporal validation and test splits.
+It reports errors by ZIP and property type. The results apply to the selected
+study ZIPs, not to a verified county-wide population.
+The report also includes training-defined price bands, aggregate ZIP/property
+type intersections, and the share of error carried by the largest residuals.
+Intersections below 30 sales report counts only. Positive signed error means
+overprediction; negative signed error means underprediction. The 2025 test
+split is descriptive and must not be used to tune a model.
+
+Model experiments begin in an executed notebook before the selected procedure
+is moved to tested Python modules. Install the notebook tools with
+`.venv\Scripts\python -m pip install -e ".[dev,notebook]"`, then open
+`notebooks/high_price_validation.ipynb` from the repository root after preparing
+the cohort. Its saved outputs contain validation aggregates only; the 2025 test
+split is excluded from the notebook.
+
+To reproduce the fixed loss comparison and final held-out evaluation:
+
+```powershell
+.venv\Scripts\python -m homelens.modeling.loss_comparison
+```
+
+The ignored `data/processed/loss_comparison.json` records the validation-only
+selection rule, both validation evaluations, the final 2025 comparison, and a
+temporal interval coverage check. The simple global interval undercovers
+high-price validation sales and is not approved for inference. Because 2024
+validation also selected the model, this interval check is diagnostic rather
+than an independent coverage guarantee. This workflow does not produce a
+deployable model artifact.
 
 ## Next slices
 
