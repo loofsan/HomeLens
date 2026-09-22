@@ -17,6 +17,8 @@ dev = [
     "pandas-stubs>=3,<4",
     "pytest>=8,<10",
     "ruff>=0.11,<1",
+    "shapely>=2.1,<2.2",
+    "types-shapely>=2.1,<2.2",
 ]
 
 [tool.setuptools.packages.find]

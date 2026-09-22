@@ -95,6 +95,16 @@ eight selected ZIPs, with training sales before 2024, validation sales in 2024,
 and a partial-year 2025 test set. It is not a county-boundary validation. The
 ZIP-level price-history metric is unverified and is not joined to the cohort.
 
+To audit the selected ZIPs against the Durham County boundary, place a WGS84
+GeoJSON boundary at `data/raw/durham_county_boundary.geojson` and run:
+
+```powershell
+.venv\Scripts\python -m homelens.data.geography
+```
+
+The command writes an aggregate, ignored report to
+`data/processed/geography_audit.json`; it does not alter the prepared cohort.
+
 ## Next slices
 
 1. Establish the property data contract and import a permitted dataset.
