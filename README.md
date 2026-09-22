@@ -110,6 +110,22 @@ population, age, and housing-unit estimates with margins of error and explicit
 unavailable values. It is Durham County context only, not a ZIP-level measure
 or a property/model feature.
 
+To audit crime `BEAT` codes against the [City of Durham Police Beats layer](https://webgis.durhamnc.gov/server/rest/services/PublicServices/Public_Safety/MapServer/8),
+place its WGS84 GeoJSON export at `data/raw/durham_police_beats.geojson` and run:
+
+```powershell
+.venv\Scripts\python -m homelens.data.police_beats
+```
+
+The ignored `data/processed/police_beats_audit.json` reports polygon validity,
+split beat codes, overlaps, and aggregate crime-code coverage. In the supplied
+exports, 128,098 of 128,560 crime rows have a matching beat polygon; 454 have
+no beat and 8 use `SSA`. Sixteen cross-beat polygon pairs overlap, each by less
+than 0.000001% of the smaller feature. The [layer metadata](https://webgis.durhamnc.gov/server/rest/services/PublicServices/Public_Safety/MapServer/8/metadata)
+was modified in 2026 but gives no historical effective dates. This audit does
+not establish incident locations, historical beat boundaries, or property/ZIP-
+level crime facts. No incident records are written.
+
 To prepare the first residential modeling cohort and its audit:
 
 ```powershell
