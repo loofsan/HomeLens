@@ -111,6 +111,13 @@ Intersections below 30 sales report counts only. Positive signed error means
 overprediction; negative signed error means underprediction. The 2025 test
 split is descriptive and must not be used to tune a model.
 
+Model experiments begin in an executed notebook before the selected procedure
+is moved to tested Python modules. Install the notebook tools with
+`.venv\Scripts\python -m pip install -e ".[dev,notebook]"`, then open
+`notebooks/high_price_validation.ipynb` from the repository root after preparing
+the cohort. Its saved outputs contain validation aggregates only; the 2025 test
+split is excluded from the notebook.
+
 ## Next slices
 
 1. Establish the property data contract and import a permitted dataset.
