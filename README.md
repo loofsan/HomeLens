@@ -52,6 +52,25 @@ issues before implementation.
 `GET /api/health` returns HTTP 200 and `{"status":"ok"}`. This is a process
 liveness check, not a database or provider readiness check.
 
+## Historical property catalog
+
+The supplied `data/raw/redfin_data.csv` is a sold-home export, not a feed of
+currently available homes. The offline import creates a local SQLite catalog:
+
+```powershell
+.venv\Scripts\python -m homelens.data.property_catalog
+```
+
+The ignored `data/processed/property_catalog.sqlite3` holds validated historical
+sales inside the supplied Durham County boundary. The ignored
+`data/processed/property_catalog_audit.json` records source hashes, row
+exclusions, date range, and schema version without publishing addresses. Each
+record has a stable ID, sale date and price, home attributes, address, ZIP,
+coordinates, optional validated Redfin URL, and a fixed `historical_sale` kind.
+Re-running the import replaces the local snapshot transactionally. This catalog
+is separate from the eight-ZIP modeling cohort; it is not an active-listing
+service or a deployable data feed. Search endpoints will be added separately.
+
 ## Local development
 
 Python 3.12 or newer is required. From the repository root in PowerShell:
