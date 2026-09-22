@@ -122,6 +122,23 @@ eight selected ZIPs, with training sales before 2024, validation sales in 2024,
 and a partial-year 2025 test set. It is not a county-boundary validation. The
 ZIP-level price-history metric is unverified and is not joined to the cohort.
 
+To audit the selected ZIPs against the [Durham County Boundary layer](https://webgis.durhamnc.gov/server/rest/services/PublicServices/Administrative/MapServer/2),
+query its geometry as WGS84 GeoJSON, place the resulting polygon at
+`data/raw/durham_county_boundary.geojson`, and run:
+
+```powershell
+.venv\Scripts\python -m homelens.data.geography
+```
+
+The command writes an aggregate, ignored report to
+`data/processed/geography_audit.json`; it does not alter the prepared cohort.
+For the supplied sources, 18,117 of 18,400 deduplicated historical sales with
+usable coordinates are inside the boundary. The eight-ZIP rule includes 276
+outside-county sales and excludes 55 inside-county sales. This comparison covers
+historical sales broadly, not just the prepared residential cohort. The current
+cohort remains ZIP-based and must not be presented as county-wide; a future
+county-based cohort would need separate preparation and model evaluation.
+
 To evaluate the first offline valuation baselines after preparation:
 
 ```powershell
