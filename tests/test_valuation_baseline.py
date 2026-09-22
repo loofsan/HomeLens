@@ -73,6 +73,18 @@ def test_baseline_uses_only_training_rows_and_approved_predictors() -> None:
             assert result["overall"]["small_slice"] is True
             assert result["by_zip"]["27712"]["rows"] == 5
             assert result["by_property_type"]["Condo/Co-op"]["rows"] == 5
+            assert result["by_zip_and_property_type"] == [
+                {
+                    "zip": "27712",
+                    "property_type": "Condo/Co-op",
+                    "rows": 5,
+                    "small_slice": True,
+                }
+            ]
+            assert result["error_concentration"] == {
+                "rows": 5,
+                "small_slice": True,
+            }
 
     cohort.loc[cohort["split"].eq("validation"), "price_usd"] = 99999999
     changed = evaluate_baselines(cohort, date(2024, 1, 1), date(2025, 1, 1))
@@ -94,3 +106,41 @@ def test_baseline_rejects_nonfinite_target() -> None:
 
     with pytest.raises(ValueError, match="nonfinite price_usd"):
         evaluate_baselines(cohort, date(2024, 1, 1), date(2025, 1, 1))
+
+
+def test_tail_diagnostics_use_training_thresholds_and_aggregate_errors() -> None:
+    cohort = _cohort()
+    train = cohort.loc[cohort["split"].eq("train")]
+    evaluation_rows = cohort.loc[cohort["split"].ne("train")]
+    repeated = pd.concat([evaluation_rows] * 24, ignore_index=True)
+    for split in ("validation", "test"):
+        indices = repeated.index[repeated["split"].eq(split)]
+        repeated.loc[indices, "price_usd"] = (
+            [100000] * 40 + [190000] * 40 + [500000] * 40
+        )
+    expanded = pd.concat([train, repeated], ignore_index=True)
+
+    report = evaluate_baselines(expanded, date(2024, 1, 1), date(2025, 1, 1))
+    assert report["training_price_quantiles_usd"] == {"p50": 179500, "p90": 203100}
+    result = report["evaluations"]["hist_gradient_boosting"]["test"]
+    bands = result["by_training_price_band"]
+    assert {name: band["rows"] for name, band in bands.items()} == {
+        "at_or_below_train_p50": 40,
+        "train_p50_to_p90": 40,
+        "above_train_p90": 40,
+    }
+    assert bands["above_train_p90"]["mean_signed_error_usd"] < 0
+    assert sum(
+        band["share_absolute_error"] for band in bands.values()
+    ) == pytest.approx(1, abs=0.0002)
+    assert result["by_zip_and_property_type"][0]["rows"] == 120
+    assert {
+        row["training_price_band"]: row["rows"]
+        for row in result["by_zip_property_type_and_training_price_band"]
+    } == {
+        "at_or_below_train_p50": 40,
+        "train_p50_to_p90": 40,
+        "above_train_p90": 40,
+    }
+    assert result["error_concentration"]["top_5pct_rows"] == 6
+    assert 0 < result["error_concentration"]["share_squared_error"] <= 1
