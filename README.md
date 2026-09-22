@@ -118,6 +118,20 @@ is moved to tested Python modules. Install the notebook tools with
 the cohort. Its saved outputs contain validation aggregates only; the 2025 test
 split is excluded from the notebook.
 
+To reproduce the fixed loss comparison and final held-out evaluation:
+
+```powershell
+.venv\Scripts\python -m homelens.modeling.loss_comparison
+```
+
+The ignored `data/processed/loss_comparison.json` records the validation-only
+selection rule, both validation evaluations, the final 2025 comparison, and a
+temporal interval coverage check. The simple global interval undercovers
+high-price validation sales and is not approved for inference. Because 2024
+validation also selected the model, this interval check is diagnostic rather
+than an independent coverage guarantee. This workflow does not produce a
+deployable model artifact.
+
 ## Next slices
 
 1. Establish the property data contract and import a permitted dataset.
