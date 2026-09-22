@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from pathlib import Path
 
@@ -70,3 +71,61 @@ def test_prepare_sales_filters_and_splits_without_target_leakage(
 def test_prepare_sales_validates_temporal_boundaries(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="validation start must be before test start"):
         prepare_sales(tmp_path, date(2025, 1, 1), date(2024, 1, 1))
+
+
+def test_county_verified_cohort_keeps_boundary_points_and_audits_exclusions(
+    tmp_path: Path,
+) -> None:
+    raw_dir = tmp_path / "raw"
+    raw_dir.mkdir()
+    (raw_dir / "durham_county_boundary.geojson").write_text(
+        json.dumps(
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [-79.2, 35.8],
+                            [-78.8, 35.8],
+                            [-78.8, 36.2],
+                            [-79.2, 36.2],
+                            [-79.2, 35.8],
+                        ]
+                    ],
+                },
+                "properties": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    header = (
+        "SALE TYPE,SOLD DATE,PRICE,BEDS,BATHS,SQUARE FEET,YEAR BUILT,"
+        "PROPERTY TYPE,ZIP OR POSTAL CODE,MLS#,STATE OR PROVINCE,LATITUDE,LONGITUDE\n"
+    )
+    rows = [
+        "PAST SALE,2023-06-01,250000,3,2,1200,1990,Townhouse,27703,A1,NC,36,-79",
+        "PAST SALE,2024-06-01,350000,3,2,1200,1990,Townhouse,27703,A2,NC,36,-79",
+        "PAST SALE,2025-02-01,450000,3,2,1200,1990,Townhouse,27703,A3,NC,36,-79",
+        "PAST SALE,2024-06-01,350000,3,2,1200,1990,Townhouse,27703,A4,NC,36,-79.2",
+        "PAST SALE,2024-06-01,350000,3,2,1200,1990,Townhouse,27703,A5,NC,36,-79.5",
+        "PAST SALE,2024-06-01,350000,3,2,1200,1990,Townhouse,27703,A6,NC,,-79",
+        "PAST SALE,2024-06-01,350000,3,2,1200,1990,Townhouse,27517,A7,NC,36,-79",
+    ]
+    (raw_dir / "redfin_data.csv").write_text(
+        header + "\n".join(rows) + "\n", encoding="utf-8"
+    )
+
+    original, original_audit = prepare_sales(raw_dir)
+    verified, audit = prepare_sales(raw_dir, county_verified_study_zips=True)
+
+    assert len(original) == 6
+    assert original_audit["rules"]["county_boundary_validated"] is False
+    assert len(verified) == 4
+    assert audit["split_counts"] == {"train": 1, "validation": 2, "test": 1}
+    assert audit["rejected_rows_by_stage"]["unusable_coordinates"] == 1
+    assert audit["rejected_rows_by_stage"]["outside_county"] == 1
+    assert audit["rejected_rows_by_stage"]["outside_study_zips"] == 1
+    assert audit["rules"]["county_boundary_validated"] is True
+    assert audit["rules"]["county_boundary_points_count_as_inside"] is True
+    assert len(audit["boundary_source_identity"]["sha256"]) == 64

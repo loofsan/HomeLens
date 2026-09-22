@@ -9,9 +9,8 @@ from typing import Any
 
 import pandas as pd
 import shapely
-from shapely.geometry import shape
-from shapely.geometry.base import BaseGeometry
 
+from .boundary import load_county_boundary
 from .inventory import (
     REDFIN_COLUMNS,
     _file_identity,
@@ -22,45 +21,6 @@ from .inventory import (
 from .prepare import STUDY_ZIPS
 
 
-def _load_boundary(path: Path) -> BaseGeometry:
-    if not path.is_file():
-        raise FileNotFoundError(f"Missing boundary file: {path}")
-    try:
-        document = json.loads(path.read_text(encoding="utf-8-sig"))
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"{path.name} is not valid GeoJSON") from exc
-    if not isinstance(document, dict):
-        raise ValueError(f"{path.name} must contain one polygon feature")
-
-    geometry: Any = document
-    if document.get("type") == "FeatureCollection":
-        features = document.get("features")
-        if not isinstance(features, list) or len(features) != 1:
-            raise ValueError(f"{path.name} must contain exactly one county feature")
-        geometry = (
-            features[0].get("geometry") if isinstance(features[0], dict) else None
-        )
-    elif document.get("type") == "Feature":
-        geometry = document.get("geometry")
-    if not isinstance(geometry, dict):
-        raise ValueError(f"{path.name} has no polygon geometry")
-
-    try:
-        boundary = shape(geometry)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{path.name} has invalid polygon coordinates") from exc
-    if (
-        boundary.geom_type not in {"Polygon", "MultiPolygon"}
-        or boundary.is_empty
-        or not boundary.is_valid
-    ):
-        raise ValueError(f"{path.name} must contain one valid polygon boundary")
-    min_lon, min_lat, max_lon, max_lat = boundary.bounds
-    if not (-80 < min_lon < max_lon < -78 and 35 < min_lat < max_lat < 37):
-        raise ValueError(f"{path.name} must use Durham-area WGS84 lon/lat coordinates")
-    return boundary
-
-
 def _counts_by_zip(zips: pd.Series[Any], mask: pd.Series[Any]) -> dict[str, int]:
     counts = zips.loc[mask].fillna("<missing>").value_counts().sort_index()
     return {str(zip_code): int(count) for zip_code, count in counts.items()}
@@ -69,7 +29,7 @@ def _counts_by_zip(zips: pd.Series[Any], mask: pd.Series[Any]) -> dict[str, int]
 def audit_geography(raw_dir: Path) -> dict[str, Any]:
     sales_path = raw_dir / "redfin_data.csv"
     boundary_path = raw_dir / "durham_county_boundary.geojson"
-    boundary = _load_boundary(boundary_path)
+    boundary = load_county_boundary(boundary_path)
     sales = _read_csv(sales_path, ("ZIP OR POSTAL CODE", "MLS#"))
     _require_columns(
         sales,
