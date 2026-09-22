@@ -83,6 +83,19 @@ To reproduce the local data inventory and exploratory profile:
 .venv\Scripts\python -m homelens.data.eda
 ```
 
+To audit the local crime and ACS exports without publishing incident records:
+
+```powershell
+.venv\Scripts\python -m homelens.data.neighborhood_inventory
+```
+
+The ignored `data/processed/neighborhood_inventory.json` records source hashes,
+schema and date quality, duplicate-export checks, geometry coverage, and ACS
+geographies. The supplied crime GeoJSON is a non-spatial copy of the crime
+table; it cannot be joined to homes or ZIPs. The supplied DP05 export contains
+United States figures only, not Durham demographics. Neither source currently
+supports neighborhood-level facts.
+
 To prepare the first residential modeling cohort and its audit:
 
 ```powershell
