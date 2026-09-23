@@ -117,6 +117,30 @@ The E2E tests stub API and tile responses, so they do not require the private
 catalog or contact the public tile server. Frontend checks run in GitHub
 Actions on pull requests.
 
+## Optional Google context
+
+Sale details can request nearby places, outdoor Street View imagery, and a
+closest-building solar estimate on demand. The backend uses the recorded sale
+coordinate and returns independent `available`, `unavailable`, or `error`
+states from `GET /api/properties/<id>/context`. A Street View image is served
+through `GET /api/properties/<id>/street-view/image`, so the API key never
+appears in browser requests. Neither imagery nor the closest detected roof is
+verified as belonging to the recorded home. These provider results are not
+overlaid on the OpenStreetMap sale map.
+
+For live results, enable billing and the Places API (New), Street View Static
+API, and Solar API in a Google Maps
+Platform project. Set `GOOGLE_MAPS_API_KEY` in the Flask server environment;
+do not commit the key. The server makes bounded requests with a three-second
+timeout per provider and does not persist provider content. Without a key,
+each context section reports `not_configured` and catalog search still works.
+The frontend E2E suite uses provider fakes; live provider behavior remains
+unverified until credentials are configured.
+
+Google Places content is displayed only in a separate, attributed list. Before
+publicly enabling Places, publish the required Terms of Use and Privacy Policy
+and review the current [Google Maps attribution and Places policies](https://developers.google.com/maps/documentation/places/web-service/policies).
+
 ## Local development
 
 Python 3.12 or newer is required. From the repository root in PowerShell:

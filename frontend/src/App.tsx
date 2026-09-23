@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { getSale, searchSales } from './api'
 import MapPanel from './MapPanel'
+import PropertyContext from './PropertyContext'
 import type {
   CatalogSource,
   HistoricalSale,
@@ -171,6 +172,7 @@ function SaleDetail({
               <span>Built</span>
             </div>
           </div>
+          <PropertyContext propertyId={sale.id} />
           <div className="detail-source">
             <h3>Record source</h3>
             <p>{source?.name ?? 'Historical sold-home export'}</p>
@@ -509,6 +511,7 @@ export default function App() {
 
         {selectedId && (
           <SaleDetail
+            key={selectedId}
             sale={detail}
             source={detailSource ?? source}
             loading={detailLoading}

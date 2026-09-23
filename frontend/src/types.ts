@@ -52,3 +52,45 @@ export type MapBounds = {
   north: number
   east: number
 }
+
+export type ContextSection<T> = {
+  status: 'available' | 'unavailable' | 'error'
+  reason: string | null
+  source: string
+  coverage: Record<string, unknown>
+  data: T | null
+}
+
+export type NearbyPlace = {
+  name: string
+  type: string | null
+  distance_m: number
+  maps_url: string | null
+  attributions: { provider: string; url: string | null }[]
+}
+
+export type StreetViewData = {
+  captured: string | null
+  copyright: string | null
+  distance_m: number
+  image_url: string
+  maps_url: string
+}
+
+export type SolarData = {
+  building_distance_m: number
+  imagery_date: string | null
+  imagery_quality: 'HIGH' | 'MEDIUM' | 'BASE' | null
+  max_array_panels_count: number
+  panel_capacity_watts: number
+  max_array_capacity_kw: number
+  postal_code_matches: boolean | null
+}
+
+export type PropertyContextResponse = {
+  property_id: string
+  coordinate_source: 'historical_sale_catalog'
+  nearby_places: ContextSection<{ places: NearbyPlace[] }>
+  street_view: ContextSection<StreetViewData>
+  solar: ContextSection<SolarData>
+}

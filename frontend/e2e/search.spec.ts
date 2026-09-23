@@ -237,3 +237,72 @@ test('mobile list, map, and sale details fit the viewport', async ({ page }, tes
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)
   expect(overflow).toBe(false)
 })
+
+test('property context loads on demand with partial and sourced states', async ({ page }, testInfo) => {
+  await mockBackend(page)
+  let calls = 0
+  await page.route('**/api/properties/*/context', async (route) => {
+    calls += 1
+    const base = {
+      property_id: sales[0].id,
+      coordinate_source: 'historical_sale_catalog',
+      nearby_places: {
+        status: 'available', reason: null, source: 'Google Maps Places API (New)',
+        coverage: { radius_m: 1500, distance_kind: 'straight_line' },
+        data: { places: [{
+          name: 'Duke Park', type: 'park', distance_m: 430,
+          maps_url: 'https://maps.google.com/?cid=123',
+          attributions: [{ provider: 'City of Durham', url: 'https://www.durhamnc.gov/' }],
+        }] },
+      },
+      street_view: calls === 1 ? {
+        status: 'unavailable', reason: 'not_covered', source: 'Google Maps Street View Static API',
+        coverage: { radius_m: 50 }, data: null,
+      } : {
+        status: 'available', reason: null, source: 'Google Maps Street View Static API',
+        coverage: { radius_m: 50 },
+        data: {
+          captured: '2023-08', copyright: 'Google', distance_m: 22,
+          image_url: `/api/properties/${sales[0].id}/street-view/image`,
+          maps_url: 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=36.025,-78.92',
+        },
+      },
+      solar: calls === 1 ? {
+        status: 'error', reason: 'provider_timeout', source: 'Google Maps Solar API',
+        coverage: { property_match_verified: false }, data: null,
+      } : {
+        status: 'available', reason: null, source: 'Google Maps Solar API',
+        coverage: { property_match_verified: false },
+        data: {
+          building_distance_m: 9, imagery_date: '2022-05-07', imagery_quality: 'HIGH',
+          max_array_panels_count: 10, panel_capacity_watts: 400,
+          max_array_capacity_kw: 4, postal_code_matches: true,
+        },
+      },
+    }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(base) })
+  })
+  await page.route('**/api/properties/*/street-view/image', (route) =>
+    route.fulfill({ status: 200, contentType: 'image/png', body: transparentPng }),
+  )
+  await page.goto('/')
+  await expect(page.getByText('3 recorded sales')).toBeVisible()
+  await page.getByRole('button', { name: /View 1 Main St/ }).click()
+  await expect(page.getByRole('heading', { name: 'Nearby context' })).toBeVisible()
+  expect(calls).toBe(0)
+  await page.getByRole('button', { name: 'Load context' }).click()
+  await expect(page.getByText('Duke Park')).toBeVisible()
+  await expect(page.getByText('No coverage was found near this location.')).toBeVisible()
+  await expect(page.getByText('The provider timed out.')).toBeVisible()
+  await expect(page.getByText('City of Durham')).toBeVisible()
+  await page.getByRole('button', { name: 'Refresh' }).click()
+  await expect(page.getByText('Nearby imagery is not a verified photo of this home.')).toBeVisible()
+  await expect(page.getByText('This roof is not verified as belonging to the recorded property. No financial estimate is implied.')).toBeVisible()
+  await expect(page.getByText('4 kW')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'View Duke Park on Google Maps' })).toHaveAttribute('href', 'https://maps.google.com/?cid=123')
+  await expect(page.locator('.street-view-image')).toBeVisible()
+  await expect(page.locator('.context-attribution > span:first-child')).toHaveCount(3)
+  await page.getByRole('region', { name: 'Solar context' }).scrollIntoViewIfNeeded()
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-context.png`) })
+  expect(calls).toBe(2)
+})
