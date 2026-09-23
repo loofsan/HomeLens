@@ -36,6 +36,7 @@ export type SearchResponse = {
 export type DetailResponse = {
   property: HistoricalSale
   source: CatalogSource
+  description: string
 }
 
 export type SearchFilters = {
@@ -44,6 +45,21 @@ export type SearchFilters = {
   minBeds: string
   minBaths: string
   zip: string
+}
+
+export type InterpretedFilters = {
+  min_price?: number
+  max_price?: number
+  min_beds?: number
+  min_baths?: number
+  zip?: string
+}
+
+export type SearchIntentResponse = {
+  status: 'ready' | 'clarify' | 'unsupported'
+  filters: InterpretedFilters
+  question: string | null
+  message: string | null
 }
 
 export type MapBounds = {

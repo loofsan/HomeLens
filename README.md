@@ -70,6 +70,8 @@ coordinates, optional validated Redfin URL, and a fixed `historical_sale` kind.
 Re-running the import replaces the local snapshot transactionally. This catalog
 is separate from the eight-ZIP modeling cohort; it is not an active-listing
 service or a deployable data feed.
+For an isolated local worktree, `PROPERTY_CATALOG_PATH` may point Flask to an
+existing imported catalog outside that worktree; keep the catalog out of Git.
 
 After importing, `GET /api/properties` searches the local historical sales.
 Optional filters are `min_price`, `max_price`, `min_beds`, `min_baths`, `zip`,
@@ -90,6 +92,9 @@ clarifying question, or an unsupported-condition message. Only sold price,
 minimum beds/baths, and ZIP can be inferred. The route does not run SQL, search
 the catalog, or generate property facts; applying a preview calls the existing
 deterministic property search. Manual filters remain available without AI.
+Property detail descriptions are assembled from the historical catalog record
+only and carry the catalog source in the same response. They are not
+model-authored or claims about current availability.
 
 To enable the optional OpenAI adapter for a local demo, set `OPENAI_API_KEY` in
 the backend process environment before starting Flask. `OPENAI_SEARCH_MODEL`
@@ -130,8 +135,7 @@ Open `http://127.0.0.1:5173`. Node.js 24 and pnpm 11 are required. The
 development server proxies `/api` to Flask on port 5000. Map tiles default to
 [OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/) with
 visible attribution; set `VITE_MAP_TILE_URL` to a compatible tile URL if using
-another provider. For a production deployment, choose a tile provider and
-follow its usage terms.
+another provider for a local demo and follow its usage terms.
 
 For the frontend build and browser tests:
 

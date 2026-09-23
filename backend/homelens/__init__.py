@@ -22,7 +22,10 @@ from homelens.services.property_search import PropertySearchService
 def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
     app = Flask(__name__)
     app.config.setdefault(
-        "PROPERTY_CATALOG_PATH", "data/processed/property_catalog.sqlite3"
+        "PROPERTY_CATALOG_PATH",
+        os.environ.get(
+            "PROPERTY_CATALOG_PATH", "data/processed/property_catalog.sqlite3"
+        ),
     )
     app.config.setdefault("GOOGLE_MAPS_API_KEY", os.environ.get("GOOGLE_MAPS_API_KEY"))
     app.config.setdefault("OPENAI_API_KEY", os.environ.get("OPENAI_API_KEY"))

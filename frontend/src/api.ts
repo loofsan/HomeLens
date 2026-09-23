@@ -3,6 +3,7 @@ import type {
   MapBounds,
   PropertyContextResponse,
   SearchFilters,
+  SearchIntentResponse,
   SearchResponse,
 } from './types'
 
@@ -53,5 +54,21 @@ export async function getPropertyContext(
 ): Promise<PropertyContextResponse> {
   return readResponse<PropertyContextResponse>(
     await fetch(`/api/properties/${encodeURIComponent(id)}/context`, { signal }),
+  )
+}
+
+export async function interpretSearch(
+  query: string,
+  question: string | null,
+  answer: string | null,
+  signal: AbortSignal,
+): Promise<SearchIntentResponse> {
+  return readResponse<SearchIntentResponse>(
+    await fetch('/api/search/interpret', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, ...(question && answer ? { question, answer } : {}) }),
+      signal,
+    }),
   )
 }

@@ -80,6 +80,10 @@ def test_api_validates_request_and_manual_search_does_not_require_ai() -> None:
         == 400
     )
     assert client.post("/api/search/interpret", data="not json").status_code == 400
+    assert (
+        client.post("/api/search/interpret", json={"query": "x" * 5000}).status_code
+        == 413
+    )
     assert client.get("/api/health").status_code == 200
 
 

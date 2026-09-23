@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import {
   ArrowLeft,
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -17,11 +18,13 @@ import {
   X,
 } from 'lucide-react'
 import { getSale, searchSales } from './api'
+import ConversationalSearch from './ConversationalSearch'
 import MapPanel from './MapPanel'
 import PropertyContext from './PropertyContext'
 import type {
   CatalogSource,
   HistoricalSale,
+  InterpretedFilters,
   MapBounds,
   SearchFilters,
   SearchResponse,
@@ -93,6 +96,7 @@ function SaleRow({
 function SaleDetail({
   sale,
   source,
+  description,
   loading,
   error,
   onRetry,
@@ -100,6 +104,7 @@ function SaleDetail({
 }: {
   sale: HistoricalSale | null
   source: CatalogSource | null
+  description: string | null
   loading: boolean
   error: string | null
   onRetry: () => void
@@ -172,6 +177,12 @@ function SaleDetail({
               <span>Built</span>
             </div>
           </div>
+          {description && (
+            <section className="detail-summary" aria-label="Recorded sale summary">
+              <h3>Recorded sale summary</h3>
+              <p>{description}</p>
+            </section>
+          )}
           <PropertyContext propertyId={sale.id} />
           <div className="detail-source">
             <h3>Record source</h3>
@@ -204,10 +215,12 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
+  const [filtersExpanded, setFiltersExpanded] = useState(true)
   const [retry, setRetry] = useState(0)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<HistoricalSale | null>(null)
   const [detailSource, setDetailSource] = useState<CatalogSource | null>(null)
+  const [detailDescription, setDetailDescription] = useState<string | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
   const [detailRetry, setDetailRetry] = useState(0)
@@ -241,17 +254,20 @@ export default function App() {
     if (!selectedId) {
       setDetail(null)
       setDetailSource(null)
+      setDetailDescription(null)
       setDetailError(null)
       return
     }
     const controller = new AbortController()
     setDetail(null)
+    setDetailDescription(null)
     setDetailLoading(true)
     setDetailError(null)
     getSale(selectedId, controller.signal)
       .then((result) => {
         setDetail(result.property)
         setDetailSource(result.source)
+        setDetailDescription(result.description)
       })
       .catch((cause: unknown) => {
         if (controller.signal.aborted) return
@@ -307,6 +323,23 @@ export default function App() {
     resultListRef.current?.scrollTo({ top: 0 })
   }
 
+  function applyInterpretedFilters(interpreted: InterpretedFilters) {
+    const next: SearchFilters = {
+      minPrice: interpreted.min_price === undefined ? '' : String(interpreted.min_price),
+      maxPrice: interpreted.max_price === undefined ? '' : String(interpreted.max_price),
+      minBeds: interpreted.min_beds === undefined ? '' : String(interpreted.min_beds),
+      minBaths: interpreted.min_baths === undefined ? '' : String(interpreted.min_baths),
+      zip: interpreted.zip ?? '',
+    }
+    setDraft(next)
+    setFilters(next)
+    setBounds(null)
+    setPage(1)
+    setSelectedId(null)
+    setFormError(null)
+    resultListRef.current?.scrollTo({ top: 0 })
+  }
+
   function resetFilters() {
     setDraft({ ...emptyFilters })
     setFilters({ ...emptyFilters })
@@ -314,6 +347,7 @@ export default function App() {
     setPage(1)
     setSelectedId(null)
     setFormError(null)
+    setFiltersExpanded(true)
     setMapReset((value) => value + 1)
   }
 
@@ -351,9 +385,23 @@ export default function App() {
             </div>
           </div>
 
+          <ConversationalSearch
+            onApply={applyInterpretedFilters}
+            onPreview={() => setFiltersExpanded(false)}
+          />
+
           <form className="filters" onSubmit={applyFilters}>
             <div className="filter-heading">
-              <span><SlidersHorizontal size={17} aria-hidden="true" /> Filters</span>
+              <button
+                className="filters-disclosure"
+                type="button"
+                aria-expanded={filtersExpanded}
+                aria-controls="manual-filter-grid"
+                onClick={() => setFiltersExpanded((value) => !value)}
+              >
+                <SlidersHorizontal size={17} aria-hidden="true" /> Filters
+                <ChevronDown size={15} aria-hidden="true" className={filtersExpanded ? 'is-up' : ''} />
+              </button>
               <button
                 className="icon-button reset-button"
                 type="button"
@@ -364,7 +412,7 @@ export default function App() {
                 <RotateCcw size={17} aria-hidden="true" />
               </button>
             </div>
-            <div className="filter-grid">
+            <div className="filter-grid" id="manual-filter-grid" hidden={!filtersExpanded}>
               <label>
                 <span>Min price</span>
                 <input
@@ -426,7 +474,7 @@ export default function App() {
                 <Search size={17} aria-hidden="true" /> Apply filters
               </button>
             </div>
-            {formError && <p className="form-error" role="alert">{formError}</p>}
+            {filtersExpanded && formError && <p className="form-error" role="alert">{formError}</p>}
           </form>
 
           <div className="results-heading">
@@ -514,6 +562,7 @@ export default function App() {
             key={selectedId}
             sale={detail}
             source={detailSource ?? source}
+            description={detailDescription}
             loading={detailLoading}
             error={detailError}
             onRetry={() => setDetailRetry((value) => value + 1)}

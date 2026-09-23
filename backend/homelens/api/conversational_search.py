@@ -18,6 +18,15 @@ conversational_search_bp = Blueprint("conversational_search", __name__)
 
 @conversational_search_bp.post("/api/search/interpret")
 def interpret_search() -> Response | tuple[Response, int]:
+    if request.content_length is not None and request.content_length > 4096:
+        return jsonify(
+            {
+                "error": {
+                    "code": "request_too_large",
+                    "message": "Search request is too long.",
+                }
+            }
+        ), 413
     payload: Any = request.get_json(silent=True)
     if not isinstance(payload, dict) or set(payload) - {
         "query",
