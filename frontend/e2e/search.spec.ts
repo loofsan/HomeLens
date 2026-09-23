@@ -9,6 +9,7 @@ const source = {
   boundary_sha256: 'b'.repeat(64),
   record_kind: 'historical_sale',
   active_listings: false,
+  synthetic: false,
 } as const
 
 const sales: HistoricalSale[] = [
@@ -75,9 +76,9 @@ const transparentPng = Buffer.from(
 
 async function mockBackend(
   page: Page,
-  options: { initialFailures?: number; extraSales?: number } = {},
+  options: { initialFailures?: number; extraSales?: number; synthetic?: boolean } = {},
 ) {
-  const allSales = [
+  const baseSales = [
     ...sales,
     ...Array.from({ length: options.extraSales ?? 0 }, (_, index) => ({
       ...sales[0],
@@ -86,6 +87,16 @@ async function mockBackend(
       sale_date: '2022-05-01',
     })),
   ]
+  const allSales = options.synthetic
+    ? baseSales.map((sale, index) => ({
+      ...sale,
+      address: `Fictional example ${String(index + 1).padStart(2, '0')}`,
+      source_url: null,
+    }))
+    : baseSales
+  const catalogSource = options.synthetic
+    ? { ...source, name: 'Synthetic HomeLens demo records', synthetic: true }
+    : source
   let failuresRemaining = options.initialFailures ?? 0
   await page.route('https://tile.openstreetmap.org/**', (route) =>
     route.fulfill({ status: 200, contentType: 'image/png', body: transparentPng }),
@@ -150,7 +161,7 @@ async function mockBackend(
         contentType: 'application/json',
         body: JSON.stringify(
           sale
-            ? { property: sale, source, description: `This ${sale.property_type.toLowerCase()} at ${sale.address} sold for $${sale.sold_price_usd.toLocaleString()} on ${sale.sale_date}.` }
+            ? { property: sale, source: catalogSource, description: options.synthetic ? 'Synthetic example for interface testing; not a recorded transaction.' : `This ${sale.property_type.toLowerCase()} at ${sale.address} sold for $${sale.sold_price_usd.toLocaleString()} on ${sale.sale_date}.` }
             : { error: { code: 'property_not_found', message: 'Sale not found.' } },
         ),
       })
@@ -192,7 +203,7 @@ async function mockBackend(
         total: matching.length,
         page: pageNumber,
         page_size: pageSize,
-        source,
+        source: catalogSource,
       }),
     })
   })
@@ -231,6 +242,44 @@ test('AI search previews filters, clarifies, and keeps manual search available',
   await page.getByLabel('Min price').fill('300000')
   await page.getByRole('button', { name: 'Apply filters' }).click()
   await expect(page.getByText('1 recorded sales')).toBeVisible()
+})
+
+test('synthetic catalog stays visibly fictional and skips property providers', async ({ page }, testInfo) => {
+  await mockBackend(page, { synthetic: true })
+  const providerRequests: string[] = []
+  page.on('request', (request) => {
+    if (/\/(valuation|context|street-view\/image)$/.test(request.url())) {
+      providerRequests.push(request.url())
+    }
+  })
+  await page.goto('/')
+  await expect(page.getByText('Synthetic demo')).toBeVisible()
+  await expect(page.getByText('Fictional records')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Explore sample homes' })).toBeVisible()
+  await expect(page.getByText('3 sample records')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Filters', exact: true })).toHaveAttribute('aria-expanded', 'false')
+  await page.screenshot({ path: testInfo.outputPath('synthetic-list.png') })
+  await page.getByRole('button', { name: /View Fictional example 01/ }).click()
+  await expect(page.getByRole('complementary', { name: 'Synthetic demo details' })).toBeVisible()
+  await expect(page.getByText('Sample price')).toBeVisible()
+  await expect(page.getByText('Example date')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Sample record note' })).toContainText('not a recorded transaction')
+  await expect(page.getByText(/No transaction occurred/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Estimate' })).toHaveCount(0)
+  expect(providerRequests).toEqual([])
+  await page.screenshot({ path: testInfo.outputPath('synthetic-detail.png') })
+  await page.getByRole('button', { name: 'Close sale details' }).click()
+  await page.getByRole('button', { name: 'Filters', exact: true }).click()
+  await page.getByLabel('ZIP code').fill('27703')
+  await page.getByRole('button', { name: 'Apply filters' }).click()
+  await expect(page.getByRole('button', { name: 'Filters', exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByText('1 sample record')).toBeVisible()
+  if (testInfo.project.name === 'mobile') {
+    await page.getByRole('button', { name: 'Map', exact: true }).click()
+  }
+  await expect(page.getByRole('region', { name: 'Synthetic demo map' })).toBeVisible()
+  await expect(page.getByText('1 sample point on this page')).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('synthetic-map.png') })
 })
 
 test('property detail shows a scoped estimate and explicit unsupported state', async ({ page }, testInfo) => {

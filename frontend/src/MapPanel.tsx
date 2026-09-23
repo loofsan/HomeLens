@@ -60,6 +60,7 @@ function MapSync({
 
 export default function MapPanel({
   items,
+  synthetic,
   selected,
   mode,
   activeBounds,
@@ -69,6 +70,7 @@ export default function MapPanel({
   onClearArea,
 }: {
   items: HistoricalSale[]
+  synthetic: boolean
   selected: HistoricalSale | null
   mode: 'list' | 'map'
   activeBounds: boolean
@@ -91,7 +93,7 @@ export default function MapPanel({
   }
 
   return (
-    <section className="map-panel" aria-label="Historical sale map">
+    <section className="map-panel" aria-label={synthetic ? 'Synthetic demo map' : 'Historical sale map'}>
       <MapContainer
         className="property-map"
         center={center}
@@ -151,7 +153,9 @@ export default function MapPanel({
           </button>
         )}
       </div>
-      <div className="map-count">{items.length} sales on this page</div>
+      <div className="map-count">
+        {items.length} {synthetic ? (items.length === 1 ? 'sample point' : 'sample points') : 'sales'} on this page
+      </div>
     </section>
   )
 }

@@ -91,6 +91,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 }
 
 .source-through { color: #88979b; font-weight: 550; }
+.topbar-source.is-synthetic { color: #9c4c32; }
+.topbar-source.is-synthetic .source-dot { background: #9c4c32; }
 
 .workspace {
   position: relative;
