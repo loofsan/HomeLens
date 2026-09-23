@@ -47,6 +47,7 @@ def _source(connection: sqlite3.Connection) -> CatalogSource:
     if (
         metadata.get("record_kind") != "historical_sale"
         or not metadata.get("source_sha256")
+        or not metadata.get("boundary_sha256")
         or "sale_date_max" not in metadata
     ):
         raise CatalogUnavailableError("catalog metadata is incomplete")
@@ -54,6 +55,7 @@ def _source(connection: sqlite3.Connection) -> CatalogSource:
         name="Redfin sold-home CSV export",
         latest_sale_date=metadata["sale_date_max"] or None,
         source_sha256=metadata["source_sha256"],
+        boundary_sha256=metadata["boundary_sha256"],
     )
 
 

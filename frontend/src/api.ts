@@ -4,6 +4,7 @@ import type {
   PropertyContextResponse,
   SearchFilters,
   SearchResponse,
+  ValuationResponse,
 } from './types'
 
 async function readResponse<T>(response: Response): Promise<T> {
@@ -53,5 +54,14 @@ export async function getPropertyContext(
 ): Promise<PropertyContextResponse> {
   return readResponse<PropertyContextResponse>(
     await fetch(`/api/properties/${encodeURIComponent(id)}/context`, { signal }),
+  )
+}
+
+export async function getValuation(
+  id: string,
+  signal: AbortSignal,
+): Promise<ValuationResponse> {
+  return readResponse<ValuationResponse>(
+    await fetch(`/api/properties/${encodeURIComponent(id)}/valuation`, { signal }),
   )
 }

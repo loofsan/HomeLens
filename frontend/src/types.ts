@@ -21,6 +21,7 @@ export type CatalogSource = {
   name: string
   latest_sale_date: string | null
   source_sha256: string
+  boundary_sha256: string
   record_kind: 'historical_sale'
   active_listings: false
 }
@@ -36,6 +37,21 @@ export type SearchResponse = {
 export type DetailResponse = {
   property: HistoricalSale
   source: CatalogSource
+}
+
+export type ValuationResponse = {
+  property_id: string
+  estimated_historical_price_usd: number
+  model_version: string
+  scope: string
+  earliest_supported_sale_date: string
+  latest_supported_sale_date: string
+  evaluation: {
+    held_out_test_mae_usd: number
+    held_out_test_mean_signed_error_usd: number
+  }
+  prediction_interval: null
+  disclaimer: string
 }
 
 export type SearchFilters = {

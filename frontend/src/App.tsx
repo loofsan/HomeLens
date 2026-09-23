@@ -19,6 +19,7 @@ import {
 import { getSale, searchSales } from './api'
 import MapPanel from './MapPanel'
 import PropertyContext from './PropertyContext'
+import PropertyValuation from './PropertyValuation'
 import type {
   CatalogSource,
   HistoricalSale,
@@ -172,6 +173,7 @@ function SaleDetail({
               <span>Built</span>
             </div>
           </div>
+          <PropertyValuation key={sale.id} propertyId={sale.id} />
           <PropertyContext propertyId={sale.id} />
           <div className="detail-source">
             <h3>Record source</h3>

@@ -8,7 +8,13 @@ version = "0.1.0"
 description = "Backend for the HomeLens housing research application"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["Flask>=3.1,<4"]
+dependencies = [
+    "Flask>=3.1,<4",
+    "joblib>=1.4,<2",
+    "numpy>=2,<3",
+    "pandas>=3,<4",
+    "scikit-learn>=1.6,<2",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -46,5 +52,5 @@ strict = true
 mypy_path = "backend"
 
 [[tool.mypy.overrides]]
-module = ["sklearn.*"]
+module = ["sklearn.*", "joblib", "joblib.*"]
 ignore_missing_imports = true
