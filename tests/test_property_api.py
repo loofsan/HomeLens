@@ -96,6 +96,7 @@ def test_search_and_detail_label_historical_data_and_use_stable_pagination(
     assert detail.status_code == 200
     assert detail.get_json()["property"]["sold_price_usd"] == 500000.0
     assert detail.get_json()["source"]["active_listings"] is False
+    assert "sold for $500,000 on June 1, 2024" in detail.get_json()["description"]
     missing = client.get("/api/properties/sale_" + "f" * 32)
     assert missing.status_code == 404
     assert missing.get_json()["error"]["code"] == "property_not_found"

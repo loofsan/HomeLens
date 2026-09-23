@@ -70,6 +70,8 @@ coordinates, optional validated Redfin URL, and a fixed `historical_sale` kind.
 Re-running the import replaces the local snapshot transactionally. This catalog
 is separate from the eight-ZIP modeling cohort; it is not an active-listing
 service or a deployable data feed.
+For an isolated local worktree, `PROPERTY_CATALOG_PATH` may point Flask to an
+existing imported catalog outside that worktree; keep the catalog out of Git.
 
 After importing, `GET /api/properties` searches the local historical sales.
 Optional filters are `min_price`, `max_price`, `min_beds`, `min_baths`, `zip`,
@@ -81,6 +83,38 @@ single sale or 404. Both successful responses include source vintage and
 sale date. Invalid filters return 400 with a structured field error. If the
 local catalog is missing or incompatible, property routes return 503 without
 affecting `/api/health`.
+
+## Conversational search
+
+`POST /api/search/interpret` accepts a JSON `query` and optionally a previous
+`question` with its `answer`. It returns a validated filter preview, a
+clarifying question, or an unsupported-condition message. Only sold price,
+minimum beds/baths, and ZIP can be inferred. The route does not run SQL, search
+the catalog, or generate property facts; applying a preview calls the existing
+deterministic property search. Manual filters remain available without AI.
+Property detail descriptions are assembled from the historical catalog record
+only and carry the catalog source in the same response. They are not
+model-authored or claims about current availability.
+
+To enable the optional OpenAI adapter for a local demo, set `OPENAI_API_KEY` in
+the backend process environment before starting Flask. `OPENAI_SEARCH_MODEL`
+defaults to `gpt-4o-mini`. Keep keys out of Git; the browser never receives
+the key. Requests use schema-constrained responses with bounded timeouts and
+`store=false` as described in the [official OpenAI documentation](https://developers.openai.com/api/docs/guides/structured-outputs).
+Without a key, supported requests return 503 and manual search still works.
+
+The executed `notebooks/search_intent_contract.ipynb` defines the supported,
+ambiguous, and adversarial regression set. With a local key, run the offline
+provider evaluation before relying on AI interpretation:
+
+```powershell
+.venv\Scripts\python -m homelens.services.search_evaluation
+```
+
+The ignored report at `data/processed/search_intent_evaluation.json` contains
+aggregate pass counts and failed case IDs only. No live provider evaluation is
+claimed until this command is run with a configured key. This repository is
+intended for local testing and demos, not public deployment.
 
 ## Historical sale interface
 
@@ -101,8 +135,7 @@ Open `http://127.0.0.1:5173`. Node.js 24 and pnpm 11 are required. The
 development server proxies `/api` to Flask on port 5000. Map tiles default to
 [OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/) with
 visible attribution; set `VITE_MAP_TILE_URL` to a compatible tile URL if using
-another provider. For a production deployment, choose a tile provider and
-follow its usage terms.
+another provider for a local demo and follow its usage terms.
 
 For the frontend build and browser tests:
 
@@ -137,9 +170,8 @@ each context section reports `not_configured` and catalog search still works.
 The frontend E2E suite uses provider fakes; live provider behavior remains
 unverified until credentials are configured.
 
-Google Places content is displayed only in a separate, attributed list. Before
-publicly enabling Places, publish the required Terms of Use and Privacy Policy
-and review the current [Google Maps attribution and Places policies](https://developers.google.com/maps/documentation/places/web-service/policies).
+Google Places content is displayed only in a separate, attributed list. For a
+local demo with Places enabled, review the current [Google Maps attribution and Places policies](https://developers.google.com/maps/documentation/places/web-service/policies).
 
 ## Local development
 
@@ -316,6 +348,8 @@ overwrite an existing version directory. Only load artifacts generated in a
 trusted local workspace; joblib uses pickle. Restart the backend after export
 so the artifact is loaded once at startup. Missing or incompatible artifacts
 leave property search available but make valuation return HTTP 503.
+For a local worktree that reuses an existing ignored artifact, set
+`VALUATION_ARTIFACT_PATH` to its directory before starting Flask.
 
 `GET /api/properties/<id>/valuation` returns a point estimate for a supported
 historical sale in the selected eight ZIPs, inside the same county boundary and

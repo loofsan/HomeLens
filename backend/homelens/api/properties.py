@@ -11,6 +11,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from homelens.data.property_repository import CatalogUnavailableError
 from homelens.domain.property import HistoricalSale, MapBounds, PropertyQuery
+from homelens.domain.property_summary import historical_sale_summary
 from homelens.services.property_search import PropertySearchService
 
 properties_bp = Blueprint("properties", __name__)
@@ -179,4 +180,10 @@ def get_property(property_id: str) -> Response | tuple[Response, int]:
             ),
             404,
         )
-    return jsonify({"property": _record(record), "source": asdict(source)})
+    return jsonify(
+        {
+            "property": _record(record),
+            "source": asdict(source),
+            "description": historical_sale_summary(record),
+        }
+    )

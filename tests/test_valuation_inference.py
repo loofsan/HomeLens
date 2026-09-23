@@ -245,3 +245,11 @@ def test_export_reproduces_accepted_report_and_refuses_changed_cohort(
     frame.to_csv(cohort_path, index=False)
     with pytest.raises(ValueError, match="inconsistent"):
         export_model(cohort_path, audit_path, comparison_path, tmp_path / "changed")
+
+
+def test_valuation_artifact_path_can_use_local_environment(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("VALUATION_ARTIFACT_PATH", str(tmp_path))
+    app = create_app()
+    assert app.config["VALUATION_ARTIFACT_PATH"] == str(tmp_path)

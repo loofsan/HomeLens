@@ -90,6 +90,35 @@ async function mockBackend(
   await page.route('https://tile.openstreetmap.org/**', (route) =>
     route.fulfill({ status: 200, contentType: 'image/png', body: transparentPng }),
   )
+  await page.route('**/api/search/interpret', async (route) => {
+    const payload = route.request().postDataJSON() as {
+      query: string
+      question?: string
+      answer?: string
+    }
+    if (payload.query === 'AI unavailable') {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { message: 'AI search is not configured. Use the filters below.' } }),
+      })
+      return
+    }
+    const unsupported = payload.query.startsWith('Active listings')
+    const clarify = payload.query === 'Homes around $400k' && !payload.answer
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: unsupported ? 'unsupported' : clarify ? 'clarify' : 'ready',
+        filters: unsupported || clarify ? {} : payload.answer ? { max_price: 450000 } : {
+          max_price: 400000, min_beds: 3, zip: '27703',
+        },
+        question: clarify ? 'What maximum price should I use?' : null,
+        message: unsupported ? 'This search supports historical sales by price, minimum beds or baths, and ZIP. That request includes an unsupported condition.' : null,
+      }),
+    })
+  })
   await page.route('**/api/properties**', async (route) => {
     const url = new URL(route.request().url())
     if (url.pathname.endsWith('/valuation')) {
@@ -121,7 +150,7 @@ async function mockBackend(
         contentType: 'application/json',
         body: JSON.stringify(
           sale
-            ? { property: sale, source }
+            ? { property: sale, source, description: `This ${sale.property_type.toLowerCase()} at ${sale.address} sold for $${sale.sold_price_usd.toLocaleString()} on ${sale.sale_date}.` }
             : { error: { code: 'property_not_found', message: 'Sale not found.' } },
         ),
       })
@@ -169,6 +198,41 @@ async function mockBackend(
   })
 }
 
+test('AI search previews filters, clarifies, and keeps manual search available', async ({ page }, testInfo) => {
+  await mockBackend(page)
+  await page.goto('/')
+  await page.getByLabel('Describe your search').fill('Sold homes under $400,000 with at least 3 beds in 27703')
+  await page.getByRole('button', { name: 'Interpret search' }).click()
+  await expect(page.getByText('Up to $400,000 · 3+ beds · ZIP 27703')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Filters', exact: true })).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('button', { name: /View 1 Main St/ })).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('ai-search-preview.png') })
+  await page.getByRole('button', { name: 'Apply search' }).click()
+  await expect(page.getByText('1 recorded sales')).toBeVisible()
+  await page.getByRole('button', { name: 'Filters', exact: true }).click()
+  await expect(page.getByLabel('ZIP code')).toHaveValue('27703')
+
+  await page.getByLabel('Describe your search').fill('Homes around $400k')
+  await page.getByRole('button', { name: 'Interpret search' }).click()
+  await expect(page.getByText('What maximum price should I use?')).toBeVisible()
+  await page.getByLabel('What maximum price should I use?').fill('$450k')
+  await page.getByRole('button', { name: 'Continue search' }).click()
+  await expect(page.getByText('Up to $450,000')).toBeVisible()
+  await page.getByRole('button', { name: 'Apply search' }).click()
+  await expect(page.getByText('2 recorded sales')).toBeVisible()
+
+  await page.getByLabel('Describe your search').fill('Active listings under $500k')
+  await page.getByRole('button', { name: 'Interpret search' }).click()
+  await expect(page.getByText(/unsupported condition/)).toBeVisible()
+  await page.getByLabel('Describe your search').fill('AI unavailable')
+  await page.getByRole('button', { name: 'Interpret search' }).click()
+  await expect(page.getByRole('alert').getByText(/not configured/)).toBeVisible()
+  await page.getByRole('button', { name: 'Filters', exact: true }).click()
+  await page.getByLabel('Min price').fill('300000')
+  await page.getByRole('button', { name: 'Apply filters' }).click()
+  await expect(page.getByText('1 recorded sales')).toBeVisible()
+})
+
 test('property detail shows a scoped estimate and explicit unsupported state', async ({ page }, testInfo) => {
   await mockBackend(page)
   await page.goto('/')
@@ -198,6 +262,7 @@ test('search, inspect a sale, filter, and clear on desktop', async ({ page }, te
   await page.getByRole('button', { name: /View 1 Main St/ }).click()
   await expect(page.getByRole('complementary', { name: 'Historical sale details' })).toBeVisible()
   await expect(page.getByText('Not an active listing')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Recorded sale summary' })).toContainText('sold for $350,000')
   await expect(page.getByText('Sold May 20, 2025')).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('desktop-detail.png') })
   await page.getByRole('button', { name: 'Close sale details' }).click()
