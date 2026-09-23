@@ -367,6 +367,20 @@ $323,459. These results and prior use of 2024 for point-model selection do not
 support serving an uncertainty interval. The versioned artifact and API remain
 point-estimate-only.
 
+The executed `notebooks/interval_slice_diagnostics.ipynb` follows up with
+inference-available predicted-price bands and ZIP grouping. It compares support,
+coverage, and width using only the two halves of 2024. Reproduce its ignored
+aggregate report after preparing the county-verified cohort and comparison:
+
+```powershell
+.venv\Scripts\python -m homelens.modeling.interval_slice_diagnostics
+```
+
+`data/processed/interval_slice_diagnostics.json` records group fallbacks and
+small-slice suppression, not an inference artifact. None of the candidates is
+approved for serving. The previously inspected 2025 outcomes cannot provide a
+fresh final test for a new method; that will require a later, untouched cohort.
+
 The executed `notebooks/county_cohort_validation.ipynb` compares the original
 ZIP cohort, a broad county cohort, and the eight study ZIPs restricted to the
 county polygon. It records aggregate exclusions, ZIP-label conflicts, split
