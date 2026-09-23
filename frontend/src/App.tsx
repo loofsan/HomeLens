@@ -21,6 +21,7 @@ import { getSale, searchSales } from './api'
 import ConversationalSearch from './ConversationalSearch'
 import MapPanel from './MapPanel'
 import PropertyContext from './PropertyContext'
+import PropertyValuation from './PropertyValuation'
 import type {
   CatalogSource,
   HistoricalSale,
@@ -183,6 +184,7 @@ function SaleDetail({
               <p>{description}</p>
             </section>
           )}
+          <PropertyValuation key={sale.id} propertyId={sale.id} />
           <PropertyContext propertyId={sale.id} />
           <div className="detail-source">
             <h3>Record source</h3>

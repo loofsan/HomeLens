@@ -354,6 +354,15 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .detail-summary { padding: 20px 23px; border-bottom: 1px solid var(--line); }
 .detail-summary h3 { margin: 0 0 10px; font-size: 13px; }
 .detail-summary p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.property-valuation { padding: 20px 23px; border-bottom: 1px solid var(--line); }
+.valuation-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.valuation-heading h3 { margin: 0; font-size: 14px; font-weight: 720; }
+.valuation-heading .secondary-button { margin: 0; white-space: nowrap; }
+.valuation-status { margin: 13px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.valuation-result { padding-top: 12px; }
+.valuation-result strong { display: block; font-size: 25px; line-height: 1.2; }
+.valuation-result p { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.valuation-result span { display: block; margin-top: 10px; color: var(--green-deep); font-size: 10px; font-weight: 700; }
 .property-context { padding: 20px 23px 0; border-bottom: 1px solid var(--line); }
 .context-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 19px; }
 .context-heading h3 { margin: 0; font-size: 14px; font-weight: 720; }

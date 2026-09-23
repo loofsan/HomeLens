@@ -82,6 +82,7 @@ def test_search_and_detail_label_historical_data_and_use_stable_pagination(
         "name": "Redfin sold-home CSV export",
         "latest_sale_date": "2024-06-01",
         "source_sha256": "a" * 64,
+        "boundary_sha256": "b" * 64,
         "record_kind": "historical_sale",
         "active_listings": False,
     }

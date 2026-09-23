@@ -170,9 +170,8 @@ each context section reports `not_configured` and catalog search still works.
 The frontend E2E suite uses provider fakes; live provider behavior remains
 unverified until credentials are configured.
 
-Google Places content is displayed only in a separate, attributed list. Before
-publicly enabling Places, publish the required Terms of Use and Privacy Policy
-and review the current [Google Maps attribution and Places policies](https://developers.google.com/maps/documentation/places/web-service/policies).
+Google Places content is displayed only in a separate, attributed list. For a
+local demo with Places enabled, review the current [Google Maps attribution and Places policies](https://developers.google.com/maps/documentation/places/web-service/policies).
 
 ## Local development
 
@@ -333,6 +332,32 @@ These commands write ignored county-cohort and comparison reports under
 `data/processed`. The comparison uses 2024 validation for the geography check
 and reports the selected model's 2025 test performance descriptively. The
 selected geography is a verified subset of Durham County, not the whole county.
+
+To export the fixed, train-only Poisson model after preparing the selected cohort
+and comparison, run:
+
+```powershell
+.venv\Scripts\python -m homelens.modeling.export
+```
+
+The ignored `models/valuation_v1` directory contains a joblib model and JSON
+metadata with source, boundary, cohort, and model checksums, library versions,
+supported feature ranges, and held-out aggregate errors. Export fails if the
+cohort or evaluation differs from the accepted comparison, and it will not
+overwrite an existing version directory. Only load artifacts generated in a
+trusted local workspace; joblib uses pickle. Restart the backend after export
+so the artifact is loaded once at startup. Missing or incompatible artifacts
+leave property search available but make valuation return HTTP 503.
+For a local worktree that reuses an existing ignored artifact, set
+`VALUATION_ARTIFACT_PATH` to its directory before starting Flask.
+
+`GET /api/properties/<id>/valuation` returns a point estimate for a supported
+historical sale in the selected eight ZIPs, inside the same county boundary and
+source catalog, with a sale date from May 21, 2020 through May 20, 2025 and features within
+the training ranges. Unsupported records return HTTP 422. The estimate is not
+a current market value or appraisal. The 2025 held-out MAE was $81,625.74 and
+mean signed error was -$56,951.48 (underprediction). No prediction interval is
+served while high-price calibration remains unresolved.
 
 ## Next slices
 

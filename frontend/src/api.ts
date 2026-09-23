@@ -5,6 +5,7 @@ import type {
   SearchFilters,
   SearchIntentResponse,
   SearchResponse,
+  ValuationResponse,
 } from './types'
 
 async function readResponse<T>(response: Response): Promise<T> {
@@ -70,5 +71,14 @@ export async function interpretSearch(
       body: JSON.stringify({ query, ...(question && answer ? { question, answer } : {}) }),
       signal,
     }),
+  )
+}
+
+export async function getValuation(
+  id: string,
+  signal: AbortSignal,
+): Promise<ValuationResponse> {
+  return readResponse<ValuationResponse>(
+    await fetch(`/api/properties/${encodeURIComponent(id)}/valuation`, { signal }),
   )
 }
