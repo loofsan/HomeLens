@@ -19,7 +19,7 @@ $env:PROPERTY_CATALOG_PATH = "data/processed/demo_catalog.sqlite3"
 .venv\Scripts\python -m flask --app homelens run
 ```
 
-In a second PowerShell window:
+Open a second PowerShell window at the repository root, then:
 
 ```powershell
 cd frontend
@@ -27,17 +27,36 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open `http://127.0.0.1:5173`. Use the installed Python version if 3.13 is not
-available; Node.js 24 and pnpm 11 are required. Map tiles need a network
-connection. The generated SQLite file is ignored by Git and is separate from
-`data/processed/property_catalog.sqlite3`; the demo command refuses to replace
-an existing file. All demo records and map points are illustrative, not real
+Open the URL printed by Vite, normally `http://127.0.0.1:5173`. Use Python
+3.12 or newer if 3.13 is unavailable. CI uses Node.js 24 and pnpm 11; this
+local demo was also verified with Node.js 22.14 and pnpm 9.12. Map tiles need a
+network connection. The generated SQLite file is ignored by Git and is separate
+from `data/processed/property_catalog.sqlite3`. Generate it only once: the
+command refuses to replace an existing file, so skip that line when restarting
+the demo. All demo records and map points are illustrative, not real
 homes or transactions. Valuation and Google property context are disabled for
 them, even if credentials or a model artifact are configured. AI search remains
 optional and needs each tester's own local `OPENAI_API_KEY`; manual filters work
 without it. Use the separate historical catalog and offline model workflow below
 only with data you are permitted to use. Do not commit datasets, artifacts, or
 secrets.
+
+If ports 5000 or 5173 are occupied, use free ports instead. For example, start
+Flask from the repository root with the same `PROPERTY_CATALOG_PATH` setting:
+
+```powershell
+.venv\Scripts\python -m flask --app homelens run --port 5004
+```
+
+Then start the frontend from `frontend` in the second PowerShell window:
+
+```powershell
+$env:VITE_API_TARGET = "http://127.0.0.1:5004"
+pnpm exec vite --host 127.0.0.1 --port 5180 --strictPort
+```
+
+Open `http://127.0.0.1:5180`. Keep `VITE_API_TARGET` aligned with the Flask
+port you choose.
 
 ## Architecture
 
@@ -165,8 +184,9 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://127.0.0.1:5173`. Node.js 24 and pnpm 11 are required. The
-development server proxies `/api` to Flask on port 5000. Map tiles default to
+Open the URL printed by Vite. CI uses Node.js 24 and pnpm 11; the local demo
+also ran with Node.js 22.14 and pnpm 9.12. The development server proxies
+`/api` to Flask on port 5000 by default. Map tiles default to
 [OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/) with
 visible attribution; set `VITE_MAP_TILE_URL` to a compatible tile URL if using
 another provider for a local demo and follow its usage terms.
