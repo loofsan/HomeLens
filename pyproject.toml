@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Backend for the HomeLens housing research application"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["Flask>=3.1,<4"]
+dependencies = ["Flask>=3.1,<4", "openai>=2,<3", "pydantic>=2,<3"]
 
 [project.optional-dependencies]
 dev = [

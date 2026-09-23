@@ -82,6 +82,35 @@ sale date. Invalid filters return 400 with a structured field error. If the
 local catalog is missing or incompatible, property routes return 503 without
 affecting `/api/health`.
 
+## Conversational search
+
+`POST /api/search/interpret` accepts a JSON `query` and optionally a previous
+`question` with its `answer`. It returns a validated filter preview, a
+clarifying question, or an unsupported-condition message. Only sold price,
+minimum beds/baths, and ZIP can be inferred. The route does not run SQL, search
+the catalog, or generate property facts; applying a preview calls the existing
+deterministic property search. Manual filters remain available without AI.
+
+To enable the optional OpenAI adapter for a local demo, set `OPENAI_API_KEY` in
+the backend process environment before starting Flask. `OPENAI_SEARCH_MODEL`
+defaults to `gpt-4o-mini`. Keep keys out of Git; the browser never receives
+the key. Requests use schema-constrained responses with bounded timeouts and
+`store=false` as described in the [official OpenAI documentation](https://developers.openai.com/api/docs/guides/structured-outputs).
+Without a key, supported requests return 503 and manual search still works.
+
+The executed `notebooks/search_intent_contract.ipynb` defines the supported,
+ambiguous, and adversarial regression set. With a local key, run the offline
+provider evaluation before relying on AI interpretation:
+
+```powershell
+.venv\Scripts\python -m homelens.services.search_evaluation
+```
+
+The ignored report at `data/processed/search_intent_evaluation.json` contains
+aggregate pass counts and failed case IDs only. No live provider evaluation is
+claimed until this command is run with a configured key. This repository is
+intended for local testing and demos, not public deployment.
+
 ## Historical sale interface
 
 The React/Vite interface searches the local catalog with price, beds, baths,
