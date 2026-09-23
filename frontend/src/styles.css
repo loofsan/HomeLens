@@ -331,6 +331,34 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .detail-facts > div { display: flex; flex-direction: column; gap: 3px; padding: 15px 0; }
 .detail-facts strong { font-size: 18px; font-weight: 740; }
 .detail-facts span { color: var(--muted); font-size: 11px; }
+.property-context { padding: 20px 23px 0; border-bottom: 1px solid var(--line); }
+.context-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 19px; }
+.context-heading h3 { margin: 0; font-size: 14px; font-weight: 720; }
+.context-heading .secondary-button { margin: 0; white-space: nowrap; }
+.context-subsection { padding: 18px 0; border-top: 1px solid var(--line); }
+.context-subsection h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 11px; font-size: 13px; font-weight: 720; }
+.context-scope, .context-status, .context-caution, .context-copyright { margin: 0 0 10px; font-size: 11px; line-height: 1.45; color: var(--muted); }
+.context-status { padding: 5px 0 10px; }
+.context-caution { color: #8b4e3f; }
+.context-copyright { margin: 9px 0 0; }
+.context-attribution { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; padding-top: 8px; font-size: 10px; color: var(--muted); }
+.context-attribution > span:first-child { font-family: Roboto, Arial, sans-serif; font-size: 12px; font-weight: 400; color: #5e5e5e; white-space: nowrap; }
+.nearby-list { margin: 0; padding: 0; list-style: none; }
+.nearby-list li { padding: 9px 0; border-top: 1px solid #edf1ef; }
+.nearby-main { display: flex; justify-content: space-between; align-items: center; gap: 9px; }
+.nearby-main > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.nearby-main strong { font-size: 12px; font-weight: 690; overflow-wrap: anywhere; }
+.nearby-main span { color: var(--muted); font-size: 11px; text-transform: capitalize; }
+.nearby-main a, .context-link { display: inline-flex; align-items: center; gap: 5px; color: var(--green-deep); text-decoration: none; }
+.nearby-main a:hover, .context-link:hover, .place-attribution a:hover { text-decoration: underline; }
+.place-attribution { margin-top: 4px; color: var(--muted); font-size: 10px; }
+.place-attribution a { color: var(--muted); }
+.street-view-image { display: block; width: 100%; aspect-ratio: 15 / 8; object-fit: cover; margin-bottom: 10px; background: #e6eae8; }
+.context-link { font-size: 11px; font-weight: 700; }
+.solar-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 3px 0 13px; }
+.solar-stats > div { display: flex; flex-direction: column; gap: 3px; }
+.solar-stats strong { font-size: 18px; font-weight: 740; }
+.solar-stats span { color: var(--muted); font-size: 11px; }
 .detail-source { padding: 23px; }
 .detail-source h3 { margin-bottom: 13px; font-size: 13px; }
 .detail-source p { margin-bottom: 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }

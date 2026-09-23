@@ -1,6 +1,7 @@
 import type {
   DetailResponse,
   MapBounds,
+  PropertyContextResponse,
   SearchFilters,
   SearchResponse,
 } from './types'
@@ -43,5 +44,14 @@ export async function getSale(
 ): Promise<DetailResponse> {
   return readResponse<DetailResponse>(
     await fetch(`/api/properties/${encodeURIComponent(id)}`, { signal }),
+  )
+}
+
+export async function getPropertyContext(
+  id: string,
+  signal: AbortSignal,
+): Promise<PropertyContextResponse> {
+  return readResponse<PropertyContextResponse>(
+    await fetch(`/api/properties/${encodeURIComponent(id)}/context`, { signal }),
   )
 }
