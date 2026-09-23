@@ -64,17 +64,19 @@ function SaleRow({
   sale,
   selected,
   onSelect,
+  synthetic,
 }: {
   sale: HistoricalSale
   selected: boolean
   onSelect: () => void
+  synthetic: boolean
 }) {
   return (
     <button
       className={`sale-row${selected ? ' is-selected' : ''}`}
       type="button"
       aria-pressed={selected}
-      aria-label={`View ${sale.address}, sold ${saleDate(sale.sale_date)}`}
+      aria-label={`View ${sale.address}, ${synthetic ? 'example date' : 'sold'} ${saleDate(sale.sale_date)}`}
       onClick={onSelect}
     >
       <span className="sale-row-top">
@@ -118,7 +120,7 @@ function SaleDetail({
   }, [])
 
   return (
-    <aside className="detail-panel" aria-label="Historical sale details">
+    <aside className="detail-panel" aria-label={source?.synthetic ? 'Synthetic demo details' : 'Historical sale details'}>
       <div className="detail-topbar">
         <button
           ref={closeRef}
@@ -130,8 +132,8 @@ function SaleDetail({
         >
           <ArrowLeft size={19} aria-hidden="true" />
         </button>
-        <span className="detail-topbar-title">Sale details</span>
-        <span className="historical-tag">Historical sale</span>
+        <span className="detail-topbar-title">{source?.synthetic ? 'Sample details' : 'Sale details'}</span>
+        <span className="historical-tag">{source?.synthetic ? 'Synthetic demo' : 'Historical sale'}</span>
       </div>
       {loading && <div className="detail-state">Loading sale details…</div>}
       {error && (
@@ -153,11 +155,11 @@ function SaleDetail({
             <p className="detail-kind">{sale.property_type}</p>
           </div>
           <div className="detail-price">
-            <span>Sold price</span>
+            <span>{source?.synthetic ? 'Sample price' : 'Sold price'}</span>
             <strong>{money.format(sale.sold_price_usd)}</strong>
             <span className="detail-sold-date">
               <CalendarDays size={16} aria-hidden="true" />
-              Sold {saleDate(sale.sale_date)}
+              {source?.synthetic ? 'Example date' : 'Sold'} {saleDate(sale.sale_date)}
             </span>
           </div>
           <div className="detail-facts" aria-label="Property facts">
@@ -179,24 +181,30 @@ function SaleDetail({
             </div>
           </div>
           {description && (
-            <section className="detail-summary" aria-label="Recorded sale summary">
-              <h3>Recorded sale summary</h3>
+            <section className="detail-summary" aria-label={source?.synthetic ? 'Sample record note' : 'Recorded sale summary'}>
+              <h3>{source?.synthetic ? 'Sample record note' : 'Recorded sale summary'}</h3>
               <p>{description}</p>
             </section>
           )}
-          <PropertyValuation key={sale.id} propertyId={sale.id} />
-          <PropertyContext propertyId={sale.id} />
+          {!source?.synthetic && <PropertyValuation key={sale.id} propertyId={sale.id} />}
+          {!source?.synthetic && <PropertyContext propertyId={sale.id} />}
           <div className="detail-source">
             <h3>Record source</h3>
             <p>{source?.name ?? 'Historical sold-home export'}</p>
-            <p>
-              Dataset through{' '}
-              {source?.latest_sale_date
-                ? saleDate(source.latest_sale_date)
-                : 'an unknown date'}
-            </p>
-            <p className="source-caution">Not an active listing</p>
-            {sale.source_url && (
+            {source?.synthetic ? (
+              <p className="source-caution">Fictional record and illustrative map point. No transaction occurred.</p>
+            ) : (
+              <>
+                <p>
+                  Dataset through{' '}
+                  {source?.latest_sale_date
+                    ? saleDate(source.latest_sale_date)
+                    : 'an unknown date'}
+                </p>
+                <p className="source-caution">Not an active listing</p>
+              </>
+            )}
+            {!source?.synthetic && sale.source_url && (
               <a href={sale.source_url} target="_blank" rel="noreferrer noopener">
                 View source record <ExternalLink size={15} aria-hidden="true" />
               </a>
@@ -214,6 +222,7 @@ export default function App() {
   const [bounds, setBounds] = useState<MapBounds | null>(null)
   const [page, setPage] = useState(1)
   const [response, setResponse] = useState<SearchResponse | null>(null)
+  const [catalogSource, setCatalogSource] = useState<CatalogSource | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
@@ -229,6 +238,7 @@ export default function App() {
   const [mobileView, setMobileView] = useState<'list' | 'map'>('list')
   const [mapReset, setMapReset] = useState(0)
   const resultListRef = useRef<HTMLDivElement>(null)
+  const demoFiltersInitialized = useRef(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -238,6 +248,7 @@ export default function App() {
     searchSales(filters, page, bounds, controller.signal)
       .then((result) => {
         setResponse(result)
+        setCatalogSource(result.source)
         setSelectedId((current) =>
           result.items.some((sale) => sale.id === current) ? current : null,
         )
@@ -301,8 +312,15 @@ export default function App() {
     () => detail ?? items.find((sale) => sale.id === selectedId) ?? null,
     [detail, items, selectedId],
   )
-  const source = response?.source ?? null
+  const source = response?.source ?? catalogSource
   const totalPages = Math.max(1, Math.ceil((response?.total ?? 0) / 40))
+
+  useEffect(() => {
+    if (source?.synthetic && !demoFiltersInitialized.current) {
+      demoFiltersInitialized.current = true
+      setFiltersExpanded(false)
+    }
+  }, [source?.synthetic])
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -366,10 +384,11 @@ export default function App() {
           <span className="brand-icon"><House size={20} strokeWidth={2.2} aria-hidden="true" /></span>
           <span>HomeLens</span>
         </div>
-        <div className="topbar-source">
+        <div className={`topbar-source${source?.synthetic ? ' is-synthetic' : ''}`}>
           <span className="source-dot" aria-hidden="true" />
-          <span>Historical sales</span>
-          {source?.latest_sale_date && (
+          <span>{source?.synthetic ? 'Synthetic demo' : 'Historical sales'}</span>
+          {source?.synthetic && <span className="source-through">Fictional records</span>}
+          {!source?.synthetic && source?.latest_sale_date && (
             <span className="source-through">through {saleDate(source.latest_sale_date)}</span>
           )}
         </div>
@@ -383,7 +402,7 @@ export default function App() {
           <div className="search-heading">
             <div>
               <p className="eyebrow">Durham, North Carolina</p>
-              <h1>Explore sold homes</h1>
+              <h1>{source?.synthetic ? 'Explore sample homes' : 'Explore sold homes'}</h1>
             </div>
           </div>
 
@@ -486,7 +505,7 @@ export default function App() {
                   ? 'Loading sales'
                   : error
                     ? 'Sales unavailable'
-                    : `${integer.format(response?.total ?? 0)} recorded sales`}
+                    : `${integer.format(response?.total ?? 0)} ${source?.synthetic ? 'sample records' : 'recorded sales'}`}
               </strong>
               <span>{bounds ? 'Within map area' : 'Durham County'}</span>
             </div>
@@ -519,7 +538,7 @@ export default function App() {
             )}
             {!loading && !error && response?.total === 0 && (
               <div className="result-state">
-                <p className="state-title">No sales match</p>
+                <p className="state-title">{source?.synthetic ? 'No samples match' : 'No sales match'}</p>
                 <p>Try a broader price range or another ZIP.</p>
                 <button className="secondary-button" type="button" onClick={resetFilters}>
                   <RotateCcw size={16} aria-hidden="true" /> Clear filters
@@ -528,7 +547,7 @@ export default function App() {
             )}
             {!loading && !error && items.map((sale) => (
               <div id={`sale-${sale.id}`} key={sale.id}>
-                <SaleRow sale={sale} selected={selectedId === sale.id} onSelect={() => setSelectedId(sale.id)} />
+                <SaleRow sale={sale} selected={selectedId === sale.id} synthetic={source?.synthetic ?? false} onSelect={() => setSelectedId(sale.id)} />
               </div>
             ))}
           </div>
@@ -549,6 +568,7 @@ export default function App() {
         <div className={`map-wrap${mobileView === 'list' ? ' mobile-hidden' : ''}`}>
           <MapPanel
             items={items}
+            synthetic={source?.synthetic ?? false}
             selected={selected}
             mode={mobileView}
             activeBounds={bounds !== null}

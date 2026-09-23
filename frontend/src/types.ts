@@ -24,6 +24,7 @@ export type CatalogSource = {
   boundary_sha256: string
   record_kind: 'historical_sale'
   active_listings: false
+  synthetic: boolean
 }
 
 export type SearchResponse = {

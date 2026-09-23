@@ -109,6 +109,10 @@ class ValuationService:
         self._categories = cast(dict[str, list[str]], categories)
 
     def predict(self, record: HistoricalSale, source: CatalogSource) -> dict[str, Any]:
+        if source.synthetic:
+            raise UnsupportedValuationError(
+                "record_kind", "Synthetic demo records cannot be valued."
+            )
         if self._model is None or self._metadata is None or self._categories is None:
             raise ValuationUnavailableError(self._failure)
         metadata = self._metadata

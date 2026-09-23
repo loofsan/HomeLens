@@ -37,7 +37,13 @@ def street_view_image(property_id: str) -> Response | tuple[Response, int]:
     try:
         image = _service().street_view_image(property_id)
     except ProviderRequestError as exc:
-        status = 404 if exc.reason in ("not_covered", "not_configured") else 503
+        status = (
+            422
+            if exc.reason == "synthetic_demo"
+            else 404
+            if exc.reason in ("not_covered", "not_configured")
+            else 503
+        )
         return jsonify({"error": {"code": exc.reason}}), status
     if image is None:
         return jsonify({"error": {"code": "property_not_found"}}), 404

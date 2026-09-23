@@ -253,6 +253,8 @@ def write_catalog(
         raise ValueError("catalog accepts historical sales only")
     if len(records) != report["imported_rows"]:
         raise ValueError("catalog records do not match import audit")
+    if report.get("synthetic") is True and not report.get("source_name"):
+        raise ValueError("synthetic catalogs require an explicit source name")
     database.parent.mkdir(parents=True, exist_ok=True)
     with closing(sqlite3.connect(database)) as connection, connection:
         connection.execute(
@@ -320,6 +322,11 @@ def write_catalog(
                 ("source_sha256", report["source_identity"]["sha256"]),
                 ("boundary_sha256", report["boundary_source_identity"]["sha256"]),
                 ("sale_date_max", report["sale_date_range"][1] or ""),
+                (
+                    "source_name",
+                    report.get("source_name", "Redfin sold-home CSV export"),
+                ),
+                ("synthetic", "true" if report.get("synthetic") is True else "false"),
             ],
         )
         connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

@@ -5,6 +5,40 @@ original combined home search, neighborhood context, price forecasts, solar
 analysis, and AI-assisted questions. The current application searches a local
 catalog of historical Durham County sales; it does not show active listings.
 
+## Quick local demo
+
+This repository is for local testing and demos, not public deployment. No raw
+dataset, model artifact, or API key is needed to try search, filters, map, and
+details with 24 fictional examples. From the repository root in PowerShell:
+
+```powershell
+py -3.13 -m venv .venv
+.venv\Scripts\python -m pip install -e ".[dev]"
+.venv\Scripts\python -m homelens.data.demo_catalog
+$env:PROPERTY_CATALOG_PATH = "data/processed/demo_catalog.sqlite3"
+.venv\Scripts\python -m flask --app homelens run
+```
+
+In a second PowerShell window:
+
+```powershell
+cd frontend
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+Open `http://127.0.0.1:5173`. Use the installed Python version if 3.13 is not
+available; Node.js 24 and pnpm 11 are required. Map tiles need a network
+connection. The generated SQLite file is ignored by Git and is separate from
+`data/processed/property_catalog.sqlite3`; the demo command refuses to replace
+an existing file. All demo records and map points are illustrative, not real
+homes or transactions. Valuation and Google property context are disabled for
+them, even if credentials or a model artifact are configured. AI search remains
+optional and needs each tester's own local `OPENAI_API_KEY`; manual filters work
+without it. Use the separate historical catalog and offline model workflow below
+only with data you are permitted to use. Do not commit datasets, artifacts, or
+secrets.
+
 ## Architecture
 
 The API is a Flask application factory in `backend/homelens`. Each feature will
