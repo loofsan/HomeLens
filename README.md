@@ -313,6 +313,26 @@ validation also selected the model, this interval check is diagnostic rather
 than an independent coverage guarantee. This workflow does not produce a
 deployable model artifact.
 
+The executed `notebooks/high_price_interval_calibration.ipynb` explores
+inference-time relative and predicted-price-segmented intervals for the fixed
+county-verified Poisson model. It calibrates on January-June 2024 and compares
+methods on July-December 2024, without using the 2025 split for selection. To
+reproduce the frozen 1% upper-tail / 9% lower-tail interval assessment after
+preparing the county-verified cohort and comparison, run:
+
+```powershell
+.venv\Scripts\python -m homelens.modeling.uncertainty
+```
+
+The ignored `data/processed/uncertainty_report.json` contains aggregate
+coverage and width by training-price band, property type, and ZIP; slices below
+30 sales report counts only. On the fixed 2025 assessment, coverage was 90.8%
+overall, 89.5% above the training-price p90, and 83.0% at or below the training
+median. ZIP 27701 covered only 59.2% of 49 sales. The median interval width was
+$323,459. These results and prior use of 2024 for point-model selection do not
+support serving an uncertainty interval. The versioned artifact and API remain
+point-estimate-only.
+
 The executed `notebooks/county_cohort_validation.ipynb` compares the original
 ZIP cohort, a broad county cohort, and the eight study ZIPs restricted to the
 county polygon. It records aggregate exclusions, ZIP-label conflicts, split
