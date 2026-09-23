@@ -6,6 +6,7 @@ const source = {
   name: 'Redfin sold-home CSV export',
   latest_sale_date: '2025-05-20',
   source_sha256: 'a'.repeat(64),
+  boundary_sha256: 'b'.repeat(64),
   record_kind: 'historical_sale',
   active_listings: false,
 } as const
@@ -91,6 +92,28 @@ async function mockBackend(
   )
   await page.route('**/api/properties**', async (route) => {
     const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/valuation')) {
+      const supported = url.pathname.includes(sales[0].id)
+      await route.fulfill({
+        status: supported ? 200 : 422,
+        contentType: 'application/json',
+        body: JSON.stringify(supported ? {
+          property_id: sales[0].id,
+          estimated_historical_price_usd: 321000,
+          model_version: 'county-poisson-v1',
+          scope: 'selected eight ZIPs inside Durham County boundary',
+          earliest_supported_sale_date: '2020-05-21',
+          latest_supported_sale_date: '2025-05-20',
+          evaluation: {
+            held_out_test_mae_usd: 81625.74,
+            held_out_test_mean_signed_error_usd: -56951.48,
+          },
+          prediction_interval: null,
+          disclaimer: 'Experimental estimate for a historical sale, not a current market valuation or appraisal.',
+        } : { error: { code: 'valuation_unsupported', message: 'This ZIP is outside the model study area.' } }),
+      })
+      return
+    }
     if (url.pathname !== '/api/properties') {
       const sale = allSales.find((item) => url.pathname.endsWith(item.id))
       await route.fulfill({
@@ -145,6 +168,22 @@ async function mockBackend(
     })
   })
 }
+
+test('property detail shows a scoped estimate and explicit unsupported state', async ({ page }, testInfo) => {
+  await mockBackend(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: /View 1 Main St/ }).click()
+  await page.getByRole('button', { name: 'Estimate' }).click()
+  await expect(page.getByText('$321,000')).toBeVisible()
+  await expect(page.getByText(/not a current market valuation/)).toBeVisible()
+  await expect(page.getByText(/Held-out MAE/)).toBeVisible()
+  await expect(page.getByText(/Sales from May 2020 to May 2025/)).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath('valuation-detail.png') })
+  await page.getByRole('button', { name: 'Close sale details' }).click()
+  await page.getByRole('button', { name: /View 3 Main St/ }).click()
+  await page.getByRole('button', { name: 'Estimate' }).click()
+  await expect(page.getByRole('alert').getByText(/outside the model study area/)).toBeVisible()
+})
 
 test('search, inspect a sale, filter, and clear on desktop', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop')
