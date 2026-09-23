@@ -39,9 +39,18 @@ class PropertyContextService:
         self._provider = provider
 
     def get(self, property_id: str) -> dict[str, Any] | None:
-        sale, _ = self._repository.get(property_id)
+        sale, source = self._repository.get(property_id)
         if sale is None:
             return None
+        if source.synthetic:
+            return {
+                "property_id": sale.id,
+                "coordinate_source": "historical_sale_catalog",
+                **{
+                    name: section("unavailable", provider, {}, reason="synthetic_demo")
+                    for name, provider in SOURCES.items()
+                },
+            }
 
         def run(
             name: str, operation: Callable[[HistoricalSale], ContextSection]
@@ -60,9 +69,11 @@ class PropertyContextService:
         }
 
     def street_view_image(self, property_id: str) -> tuple[bytes, str] | None:
-        sale, _ = self._repository.get(property_id)
+        sale, source = self._repository.get(property_id)
         if sale is None:
             return None
+        if source.synthetic:
+            raise ProviderRequestError("synthetic_demo")
         try:
             return self._provider.street_view_image(sale)
         except ProviderRequestError:

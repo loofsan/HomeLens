@@ -62,6 +62,7 @@ class CatalogSource:
     boundary_sha256: str
     record_kind: Literal["historical_sale"] = "historical_sale"
     active_listings: Literal[False] = False
+    synthetic: bool = False
 
 
 @dataclass(frozen=True, slots=True)

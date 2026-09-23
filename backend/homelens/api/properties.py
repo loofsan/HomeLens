@@ -184,6 +184,10 @@ def get_property(property_id: str) -> Response | tuple[Response, int]:
         {
             "property": _record(record),
             "source": asdict(source),
-            "description": historical_sale_summary(record),
+            "description": (
+                "Synthetic example for interface testing; not a recorded transaction."
+                if source.synthetic
+                else historical_sale_summary(record)
+            ),
         }
     )

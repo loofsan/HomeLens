@@ -51,11 +51,15 @@ def _source(connection: sqlite3.Connection) -> CatalogSource:
         or "sale_date_max" not in metadata
     ):
         raise CatalogUnavailableError("catalog metadata is incomplete")
+    synthetic = metadata.get("synthetic", "false")
+    if synthetic not in {"true", "false"}:
+        raise CatalogUnavailableError("catalog provenance is invalid")
     return CatalogSource(
-        name="Redfin sold-home CSV export",
+        name=metadata.get("source_name", "Redfin sold-home CSV export"),
         latest_sale_date=metadata["sale_date_max"] or None,
         source_sha256=metadata["source_sha256"],
         boundary_sha256=metadata["boundary_sha256"],
+        synthetic=synthetic == "true",
     )
 
 

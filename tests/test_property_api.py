@@ -85,6 +85,7 @@ def test_search_and_detail_label_historical_data_and_use_stable_pagination(
         "boundary_sha256": "b" * 64,
         "record_kind": "historical_sale",
         "active_listings": False,
+        "synthetic": False,
     }
 
     second = client.get("/api/properties?page_size=2&page=2").get_json()
