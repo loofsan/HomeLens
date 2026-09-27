@@ -8,7 +8,7 @@ from typing import Any
 from flask import Flask
 
 from homelens.adapters.google_maps import GoogleContextProvider
-from homelens.adapters.openai_search import OpenAISearchProvider
+from homelens.adapters.openai_search import OpenAINearbyProvider, OpenAISearchProvider
 from homelens.api.context import context_bp
 from homelens.api.conversational_search import conversational_search_bp
 from homelens.api.crime import crime_bp
@@ -21,6 +21,7 @@ from homelens.data.property_repository import SqlitePropertyRepository
 from homelens.services.conversational_search import ConversationalSearchService
 from homelens.services.crime_map import CrimeMapService
 from homelens.services.demographics import DemographicsService
+from homelens.services.nearby_interpreter import NearbyInterpreter
 from homelens.services.property_context import PropertyContextService
 from homelens.services.property_search import PropertySearchService
 from homelens.services.valuation import ValuationService
@@ -69,6 +70,11 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
     api_key = app.config["OPENAI_API_KEY"]
     app.extensions["conversational_search"] = ConversationalSearchService(
         OpenAISearchProvider(api_key, app.config["OPENAI_SEARCH_MODEL"])
+        if api_key
+        else None
+    )
+    app.extensions["nearby_interpreter"] = NearbyInterpreter(
+        OpenAINearbyProvider(api_key, app.config["OPENAI_SEARCH_MODEL"])
         if api_key
         else None
     )

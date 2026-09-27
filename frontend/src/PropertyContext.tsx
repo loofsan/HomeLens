@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { ExternalLink, MapPin, RefreshCw, Sun, View } from 'lucide-react'
-import { getNearbyPlaces, getPropertyContext } from './api'
+import type { FormEvent } from 'react'
+import { ExternalLink, MapPin, RefreshCw, Search, Sun, View } from 'lucide-react'
+import { getNearbyPlaces, getPropertyContext, interpretNearby } from './api'
 import type {
   ContextSection,
   NearbyPlace,
@@ -63,9 +64,43 @@ function NearbyPlaces({ initial, propertyId }: { initial: NearbySection; propert
   const [radius, setRadius] = useState(Number(initial.coverage.radius_m ?? 1500))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [freeText, setFreeText] = useState('')
+  const [interpretNote, setInterpretNote] = useState<string | null>(null)
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const controllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => () => controllerRef.current?.abort(), [])
+
+  const labelFor = (value: string) =>
+    NEARBY_CATEGORIES.find((item) => item.value === value)?.label ?? value
+
+  async function submitFreeText(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const text = freeText.trim()
+    if (text.length < 2) return
+    controllerRef.current?.abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
+    setSuggestions([])
+    setInterpretNote(null)
+    try {
+      const result = await interpretNearby(text, controller.signal)
+      if (controller.signal.aborted) return
+      if (result.status === 'matched' && result.category) {
+        setInterpretNote(`Showing ${labelFor(result.category)} for “${text}”.`)
+        load(result.category, radius)
+      } else if (result.status === 'ambiguous' && result.options?.length) {
+        setInterpretNote(`“${text}” matches more than one category. Choose one:`)
+        setSuggestions(result.options)
+      } else {
+        setInterpretNote(`No place category matches “${text}”. Try one of the categories above.`)
+      }
+    } catch (cause: unknown) {
+      if (!controller.signal.aborted) {
+        setInterpretNote(cause instanceof Error ? cause.message : 'That request could not be interpreted.')
+      }
+    }
+  }
 
   function load(nextCategory: string, nextRadius: number) {
     setCategory(nextCategory)
@@ -107,6 +142,30 @@ function NearbyPlaces({ initial, propertyId }: { initial: NearbySection; propert
             </button>
           ))}
         </div>
+        <form className="nearby-free-text" onSubmit={submitFreeText}>
+          <label className="sr-only" htmlFor={`nearby-free-text-${propertyId}`}>Describe a place to find nearby</label>
+          <input
+            id={`nearby-free-text-${propertyId}`}
+            type="text"
+            maxLength={80}
+            placeholder="Or describe a place, like “coffee”"
+            value={freeText}
+            onChange={(event) => setFreeText(event.target.value)}
+          />
+          <button type="submit" aria-label="Find nearby" title="Find nearby" disabled={loading || freeText.trim().length < 2}>
+            <Search size={15} aria-hidden="true" />
+          </button>
+        </form>
+        {interpretNote && <p className="context-scope" role="status">{interpretNote}</p>}
+        {suggestions.length > 0 && (
+          <div className="nearby-chips" role="group" aria-label="Suggested categories">
+            {suggestions.map((value) => (
+              <button key={value} type="button" className="nearby-chip" onClick={() => { setSuggestions([]); setInterpretNote(null); load(value, radius) }}>
+                {labelFor(value)}
+              </button>
+            ))}
+          </div>
+        )}
         <label className="nearby-radius">
           <span>Within</span>
           <select

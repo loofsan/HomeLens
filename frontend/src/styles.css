@@ -420,6 +420,10 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .nearby-chip[aria-pressed="true"] { border-color: var(--green); background: var(--green); color: #fff; }
 .nearby-chip:disabled { cursor: progress; }
 .nearby-chip:focus-visible, .nearby-radius select:focus-visible { outline: 2px solid var(--green-deep); outline-offset: 2px; }
+.nearby-free-text { display: flex; min-width: 0; }
+.nearby-free-text input { min-width: 0; flex: 1; height: 32px; padding: 0 9px; border: 1px solid #cfdad7; border-right: 0; border-radius: 5px 0 0 5px; background: #fff; font-size: 12px; }
+.nearby-free-text button { display: grid; flex: 0 0 34px; place-items: center; border: 1px solid var(--green); border-radius: 0 5px 5px 0; background: var(--green); color: #fff; }
+.nearby-free-text button:disabled { border-color: #cfdad7; background: #e7eeec; color: #8fa3a1; }
 .nearby-radius { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; font-weight: 650; }
 .nearby-radius select { height: 30px; padding: 0 8px; border: 1px solid #cfdad7; border-radius: 5px; background: #fff; color: var(--ink); font-size: 12px; }
 .nearby-list { margin: 0; padding: 0; list-style: none; }

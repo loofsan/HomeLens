@@ -237,6 +237,14 @@ only that section with an optional `category` (`everyday`, `schools`,
 Each category maps to a fixed list of Places API (New) types; other values
 return 400 without a provider call.
 
+Sale details also accept a short free-text place request ("coffee",
+"playground"). `POST /api/nearby/interpret` maps it to one of those categories
+with fixed keywords first; only when no keyword matches, and `OPENAI_API_KEY`
+is set, it asks the model to choose a category from the same allow-list or
+none. Requests matching several categories return the options instead of a
+guess, and unmatched requests say so. The result only selects a category; the
+places come from the same Places request as the chips.
+
 Solar reports the closest building's modeled panel count, capacity, usable
 roof area, sunshine hours, and grid carbon factor. When the Solar API returns
 financial analyses, sale details offer one cash-purchase scenario per modeled

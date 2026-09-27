@@ -250,3 +250,10 @@ export type ValueTrendResponse = {
   index_change_pct?: number
   points?: ValueTrendPoint[]
 }
+
+export type NearbyInterpretation = {
+  status: 'matched' | 'ambiguous' | 'no_match'
+  category: string | null
+  method: 'keyword' | 'ai' | null
+  options?: string[]
+}
