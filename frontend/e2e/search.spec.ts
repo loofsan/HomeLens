@@ -415,7 +415,7 @@ test('property context loads on demand with partial and sourced states', async (
         status: 'available', reason: null, source: 'Google Maps Street View Static API',
         coverage: { radius_m: 50 },
         data: {
-          captured: '2023-08', copyright: 'Google', distance_m: 22,
+          captured: '2023-08', copyright: 'Google', distance_m: 22, heading_deg: 135.4,
           image_url: `/api/properties/${sales[0].id}/street-view/image`,
           maps_url: 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=36.025,-78.92',
         },
@@ -454,6 +454,7 @@ test('property context loads on demand with partial and sourced states', async (
   await expect(page.getByText('4 kW')).toBeVisible()
   await expect(page.getByRole('link', { name: 'View Duke Park on Google Maps' })).toHaveAttribute('href', 'https://maps.google.com/?cid=123')
   await expect(page.locator('.street-view-image')).toBeVisible()
+  await expect(page.getByText('22 m from the recorded coordinate · facing southeast toward it')).toBeVisible()
   await expect(page.locator('.context-attribution > span:first-child')).toHaveCount(3)
   await page.getByRole('region', { name: 'Solar context' }).scrollIntoViewIfNeeded()
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-context.png`) })

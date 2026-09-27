@@ -17,6 +17,7 @@ from homelens.adapters.google_maps import (
     STREET_VIEW_URL,
     GoogleContextProvider,
     UrlLibGoogleTransport,
+    _bearing_deg,
 )
 from homelens.data.property_catalog import write_catalog
 from homelens.data.property_repository import SqlitePropertyRepository
@@ -106,6 +107,7 @@ class FakeTransport:
             return {
                 "status": "OK",
                 "location": {"latitude": 36.0002, "longitude": -79.0},
+                "pano_id": "pano_ABC-123",
                 "date": "2023-08",
                 "copyright": "Google",
             }
@@ -172,6 +174,9 @@ def test_google_adapters_use_bounded_requests_and_keep_key_server_side(
     assert street["status"] == "available"
     assert street["coverage"]["radius_m"] == 50
     assert street["data"]["captured"] == "2023-08"
+    assert street["data"]["heading_deg"] == 180.0
+    assert "pano=pano_ABC-123" in street["data"]["maps_url"]
+    assert "heading=180.0" in street["data"]["maps_url"]
     solar = payload["solar"]
     assert solar["status"] == "available"
     assert solar["coverage"]["property_match_verified"] is False
@@ -192,8 +197,100 @@ def test_google_adapters_use_bounded_requests_and_keep_key_server_side(
     assert image.mimetype == "image/jpeg"
     assert image.data == b"\xff\xd8\xff\xd9"
     assert image.headers["Cache-Control"] == "no-store"
-    assert transport.calls[3][1] == STREET_VIEW_URL
-    assert transport.calls[3][2]["params"]["return_error_code"] == "true"
+    assert transport.calls[3][1] == f"{STREET_VIEW_URL}/metadata"
+    image_params = transport.calls[4][2]["params"]
+    assert transport.calls[4][1] == STREET_VIEW_URL
+    assert image_params["return_error_code"] == "true"
+    assert image_params["pano"] == "pano_ABC-123"
+    assert image_params["heading"] == "180.0"
+    assert "location" not in image_params
+
+
+class MetadataTransport(FakeTransport):
+    def __init__(self, metadata: dict[str, Any]) -> None:
+        super().__init__()
+        self.metadata = metadata
+
+    def json(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict[str, str] | None = None,
+        body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        if url == f"{STREET_VIEW_URL}/metadata":
+            self.calls.append((method, url, {"params": params}))
+            return self.metadata
+        return super().json(method, url, params=params, body=body, headers=headers)
+
+
+def test_street_view_without_pano_id_falls_back_to_location_with_heading(
+    tmp_path: Path,
+) -> None:
+    app = _app(tmp_path)
+    transport = MetadataTransport(
+        {
+            "status": "OK",
+            "location": {"latitude": 36.0, "longitude": -79.0003},
+            "pano_id": "not a valid id!",
+        }
+    )
+    _with_transport(app, transport)
+    client = app.test_client()
+    street = client.get(f"/api/properties/{SALE_ID}/context").get_json()["street_view"]
+    assert street["data"]["heading_deg"] == 90.0
+    assert "pano=" not in street["data"]["maps_url"]
+    assert client.get(f"/api/properties/{SALE_ID}/street-view/image").status_code == 200
+    params = transport.calls[-1][2]["params"]
+    assert "pano" not in params
+    assert params["location"] == "36.0,-79.0"
+    assert params["heading"] == "90.0"
+
+
+def test_street_view_at_the_sale_coordinate_has_no_heading(tmp_path: Path) -> None:
+    app = _app(tmp_path)
+    transport = MetadataTransport(
+        {"status": "OK", "location": {"latitude": 36.0, "longitude": -79.0}}
+    )
+    _with_transport(app, transport)
+    client = app.test_client()
+    street = client.get(f"/api/properties/{SALE_ID}/context").get_json()["street_view"]
+    assert street["data"]["heading_deg"] is None
+    client.get(f"/api/properties/{SALE_ID}/street-view/image")
+    assert "heading" not in transport.calls[-1][2]["params"]
+
+
+def test_street_view_image_is_not_requested_beyond_coverage(tmp_path: Path) -> None:
+    app = _app(tmp_path)
+    transport = MetadataTransport(
+        {"status": "OK", "location": {"latitude": 36.001, "longitude": -79.0}}
+    )
+    _with_transport(app, transport)
+    client = app.test_client()
+    street = client.get(f"/api/properties/{SALE_ID}/context").get_json()["street_view"]
+    assert street["status"] == "unavailable"
+    assert street["reason"] == "not_covered"
+    image = client.get(f"/api/properties/{SALE_ID}/street-view/image")
+    assert image.status_code == 404
+    assert all(call[1] != STREET_VIEW_URL for call in transport.calls)
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        ((36.0, -79.0), (36.001, -79.0), 0.0),
+        ((36.0, -79.0), (36.0, -78.999), 90.0),
+        ((36.0, -79.0), (35.999, -79.0), 180.0),
+        ((36.0, -79.0), (36.0, -79.001), 270.0),
+        ((0.0, 179.9999), (0.0, -179.9999), 90.0),
+    ],
+)
+def test_bearing_points_from_panorama_to_sale(
+    start: tuple[float, float], end: tuple[float, float], expected: float
+) -> None:
+    assert _bearing_deg(*start, *end) == expected
 
 
 def test_provider_failure_is_partial_and_does_not_break_sale_detail(
