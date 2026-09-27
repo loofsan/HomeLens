@@ -26,6 +26,60 @@ from homelens.domain.property_context import ProviderRequestError
 from homelens.services.property_context import PropertyContextService
 
 SALE_ID = "sale_" + "a" * 32
+SOLAR_CONFIGS = [
+    {"panelsCount": 4, "yearlyEnergyDcKwh": 2400.5},
+    {"panelsCount": 8, "yearlyEnergyDcKwh": 4800.0},
+]
+SOLAR_ANALYSES: list[dict[str, Any]] = [
+    {
+        "monthlyBill": {"currencyCode": "USD", "units": "150"},
+        "panelConfigIndex": 1,
+        "financialDetails": {
+            "solarPercentage": 88.2,
+            "netMeteringAllowed": True,
+            "costOfElectricityWithoutSolar": {"currencyCode": "USD", "units": "54000"},
+            "remainingLifetimeUtilityBill": {"currencyCode": "USD", "units": "9000"},
+        },
+        "cashPurchaseSavings": {
+            "upfrontCost": {"currencyCode": "USD", "units": "19000"},
+            "rebateValue": {"currencyCode": "USD", "units": "5700"},
+            "outOfPocketCost": {"currencyCode": "USD", "units": "13300"},
+            "paybackYears": 11.5,
+            "savings": {
+                "savingsYear1": {
+                    "currencyCode": "USD",
+                    "units": "1002",
+                    "nanos": 500000000,
+                },
+                "savingsLifetime": {"currencyCode": "USD", "units": "23619"},
+                "financiallyViable": True,
+            },
+        },
+    },
+    {
+        "monthlyBill": {"currencyCode": "USD", "units": "100"},
+        "defaultBill": True,
+        "panelConfigIndex": 0,
+        "financialDetails": {"solarPercentage": 95.6},
+        "cashPurchaseSavings": {
+            "upfrontCost": {"currencyCode": "USD", "units": "9000"},
+            "paybackYears": -1,
+            "savings": {"financiallyViable": False},
+        },
+    },
+    {
+        "monthlyBill": {"currencyCode": "USD", "units": "20"},
+        "panelConfigIndex": -1,
+        "financialDetails": {},
+        "cashPurchaseSavings": {"upfrontCost": {"currencyCode": "USD", "units": "0"}},
+    },
+    {
+        "monthlyBill": {"currencyCode": "EUR", "units": "100"},
+        "panelConfigIndex": 0,
+        "financialDetails": {},
+        "cashPurchaseSavings": {"upfrontCost": {"currencyCode": "EUR", "units": "1"}},
+    },
+]
 
 
 def _app(tmp_path: Path, key: str | None = None) -> Flask:
@@ -120,6 +174,12 @@ class FakeTransport:
                 "solarPotential": {
                     "maxArrayPanelsCount": 10,
                     "panelCapacityWatts": 400,
+                    "maxArrayAreaMeters2": 161.01,
+                    "maxSunshineHoursPerYear": 1674.3,
+                    "carbonOffsetFactorKgPerMwh": 648.8,
+                    "panelLifetimeYears": 20,
+                    "solarPanelConfigs": SOLAR_CONFIGS,
+                    "financialAnalyses": SOLAR_ANALYSES,
                 },
             }
         raise AssertionError(url)
@@ -182,6 +242,34 @@ def test_google_adapters_use_bounded_requests_and_keep_key_server_side(
     assert solar["coverage"]["property_match_verified"] is False
     assert solar["data"]["max_array_capacity_kw"] == 4.0
     assert solar["data"]["imagery_date"] == "2022-05-07"
+    assert solar["data"]["max_array_area_m2"] == 161.01
+    assert solar["data"]["carbon_offset_kg_per_mwh"] == 648.8
+    assert solar["data"]["panel_lifetime_years"] == 20
+    scenarios = solar["data"]["financial_scenarios"]
+    assert [item["monthly_bill_usd"] for item in scenarios] == [100, 150]
+    default, larger = scenarios
+    assert default["is_default_bill"] is True
+    assert default["panels_count"] == 4
+    assert default["payback_years"] is None
+    assert default["financially_viable"] is False
+    assert default["savings_lifetime_usd"] is None
+    assert larger == {
+        "monthly_bill_usd": 150,
+        "is_default_bill": False,
+        "panels_count": 8,
+        "yearly_energy_dc_kwh": 4800.0,
+        "solar_percentage": 88.2,
+        "net_metering_allowed": True,
+        "lifetime_cost_without_solar_usd": 54000,
+        "lifetime_remaining_bill_usd": 9000,
+        "upfront_cost_usd": 19000,
+        "incentives_usd": 5700,
+        "out_of_pocket_cost_usd": 13300,
+        "payback_years": 11.5,
+        "savings_year1_usd": 1002.5,
+        "savings_lifetime_usd": 23619,
+        "financially_viable": True,
+    }
 
     places_call = transport.calls[0]
     assert places_call[0:2] == ("POST", PLACES_URL)
@@ -409,3 +497,26 @@ def test_nearby_route_handles_missing_sale_and_missing_key(tmp_path: Path) -> No
     nearby = client.get(f"/api/properties/{SALE_ID}/context/nearby").get_json()
     assert nearby["status"] == "unavailable"
     assert nearby["reason"] == "not_configured"
+
+
+def test_solar_without_financial_analyses_keeps_building_facts(tmp_path: Path) -> None:
+    app = _app(tmp_path)
+    transport = FakeTransport()
+    original = transport.json
+
+    def without_financials(method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+        payload = original(method, url, **kwargs)
+        if url == SOLAR_URL:
+            potential = dict(payload["solarPotential"])
+            del potential["financialAnalyses"]
+            del potential["maxSunshineHoursPerYear"]
+            payload = {**payload, "solarPotential": potential}
+        return payload
+
+    transport.json = without_financials  # type: ignore[method-assign]
+    _with_transport(app, transport)
+    solar = app.test_client().get(f"/api/properties/{SALE_ID}/context").get_json()
+    assert solar["solar"]["status"] == "available"
+    assert solar["solar"]["data"]["financial_scenarios"] == []
+    assert solar["solar"]["data"]["max_sunshine_hours_per_year"] is None
+    assert solar["solar"]["data"]["max_array_capacity_kw"] == 4.0

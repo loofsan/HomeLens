@@ -430,6 +430,26 @@ test('property context loads on demand with partial and sourced states', async (
           building_distance_m: 9, imagery_date: '2022-05-07', imagery_quality: 'HIGH',
           max_array_panels_count: 10, panel_capacity_watts: 400,
           max_array_capacity_kw: 4, postal_code_matches: true,
+          max_array_area_m2: 161.01, max_sunshine_hours_per_year: 1674.3,
+          carbon_offset_kg_per_mwh: 648.8, panel_lifetime_years: 20,
+          financial_scenarios: [
+            {
+              monthly_bill_usd: 100, is_default_bill: true, panels_count: 8,
+              yearly_energy_dc_kwh: 4800, solar_percentage: 95.59, net_metering_allowed: true,
+              lifetime_cost_without_solar_usd: 36000, lifetime_remaining_bill_usd: 5471,
+              upfront_cost_usd: 19000, incentives_usd: 5698, out_of_pocket_cost_usd: 13302,
+              payback_years: 12, savings_year1_usd: 1002, savings_lifetime_usd: 23619,
+              financially_viable: true,
+            },
+            {
+              monthly_bill_usd: 40, is_default_bill: false, panels_count: 4,
+              yearly_energy_dc_kwh: 2400, solar_percentage: 100, net_metering_allowed: true,
+              lifetime_cost_without_solar_usd: 14000, lifetime_remaining_bill_usd: 900,
+              upfront_cost_usd: 9500, incentives_usd: 2850, out_of_pocket_cost_usd: 6650,
+              payback_years: null, savings_year1_usd: 180, savings_lifetime_usd: -1200,
+              financially_viable: false,
+            },
+          ],
         },
       },
     }
@@ -450,8 +470,18 @@ test('property context loads on demand with partial and sourced states', async (
   await expect(page.getByText('City of Durham')).toBeVisible()
   await page.getByRole('button', { name: 'Refresh' }).click()
   await expect(page.getByText('Nearby imagery is not a verified photo of this home.')).toBeVisible()
-  await expect(page.getByText('This roof is not verified as belonging to the recorded property. No financial estimate is implied.')).toBeVisible()
+  await expect(page.getByText(/They are not a quote, and this roof is not verified as belonging to the recorded property\./)).toBeVisible()
   await expect(page.getByText('4 kW')).toBeVisible()
+  await expect(page.getByText('161 m²')).toBeVisible()
+  const solar = page.getByRole('region', { name: 'Solar context' })
+  await expect(solar.getByLabel('Monthly electric bill')).toHaveValue('0')
+  await expect(solar.getByText('$13,302')).toBeVisible()
+  await expect(solar.getByText('12 years')).toBeVisible()
+  await expect(solar.getByText('Savings over 20 years')).toBeVisible()
+  await solar.getByLabel('Monthly electric bill').selectOption({ label: '$40' })
+  await expect(solar.getByText('Does not pay back in the modeled period')).toBeVisible()
+  await expect(solar.getByText('-$1,200')).toBeVisible()
+  await solar.getByLabel('Monthly electric bill').selectOption({ label: '$100 (typical for area)' })
   await expect(page.getByRole('link', { name: 'View Duke Park on Google Maps' })).toHaveAttribute('href', 'https://maps.google.com/?cid=123')
   await expect(page.locator('.street-view-image')).toBeVisible()
   await expect(page.getByText('22 m from the recorded coordinate · facing southeast toward it')).toBeVisible()

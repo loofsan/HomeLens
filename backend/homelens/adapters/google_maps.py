@@ -168,6 +168,85 @@ def _date(value: Any) -> str | None:
         return None
 
 
+def _number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if math.isfinite(value) else None
+
+
+def _money_usd(value: Any) -> float | None:
+    """Convert a google.type.Money value to dollars; other currencies are dropped."""
+    if not isinstance(value, dict) or value.get("currencyCode", "USD") != "USD":
+        return None
+    units = value.get("units", "0")
+    nanos = value.get("nanos", 0)
+    try:
+        amount = int(units) + int(nanos) / 1e9
+    except (TypeError, ValueError):
+        return None
+    return round(amount, 2) if math.isfinite(amount) else None
+
+
+def _solar_financials(potential: dict[str, Any]) -> list[dict[str, Any]]:
+    """Cash-purchase scenarios from the Solar API, one per modeled monthly bill."""
+    configs = potential.get("solarPanelConfigs")
+    configs = configs if isinstance(configs, list) else []
+    options: list[dict[str, Any]] = []
+    for raw in potential.get("financialAnalyses", []):
+        if not isinstance(raw, dict):
+            continue
+        index = raw.get("panelConfigIndex")
+        details = raw.get("financialDetails")
+        cash = raw.get("cashPurchaseSavings")
+        bill = _money_usd(raw.get("monthlyBill"))
+        if (
+            not isinstance(index, int)
+            or isinstance(index, bool)
+            or not 0 <= index < len(configs)
+            or not isinstance(configs[index], dict)
+            or not isinstance(details, dict)
+            or not isinstance(cash, dict)
+            or bill is None
+        ):
+            continue
+        savings = cash.get("savings")
+        savings = savings if isinstance(savings, dict) else {}
+        panels = configs[index].get("panelsCount")
+        payback = _number(cash.get("paybackYears"))
+        option = {
+            "monthly_bill_usd": bill,
+            "is_default_bill": raw.get("defaultBill") is True,
+            "panels_count": panels
+            if isinstance(panels, int) and not isinstance(panels, bool)
+            else None,
+            "yearly_energy_dc_kwh": _number(configs[index].get("yearlyEnergyDcKwh")),
+            "solar_percentage": _number(details.get("solarPercentage")),
+            "net_metering_allowed": details.get("netMeteringAllowed")
+            if isinstance(details.get("netMeteringAllowed"), bool)
+            else None,
+            "lifetime_cost_without_solar_usd": _money_usd(
+                details.get("costOfElectricityWithoutSolar")
+            ),
+            "lifetime_remaining_bill_usd": _money_usd(
+                details.get("remainingLifetimeUtilityBill")
+            ),
+            "upfront_cost_usd": _money_usd(cash.get("upfrontCost")),
+            "incentives_usd": _money_usd(cash.get("rebateValue")),
+            "out_of_pocket_cost_usd": _money_usd(cash.get("outOfPocketCost")),
+            "payback_years": payback if payback is not None and payback >= 0 else None,
+            "savings_year1_usd": _money_usd(savings.get("savingsYear1")),
+            "savings_lifetime_usd": _money_usd(savings.get("savingsLifetime")),
+            "financially_viable": savings.get("financiallyViable")
+            if isinstance(savings.get("financiallyViable"), bool)
+            else None,
+        }
+        if option["upfront_cost_usd"] is None:
+            continue
+        options.append(option)
+    options.sort(key=lambda option: option["monthly_bill_usd"])
+    return options
+
+
 class GoogleContextProvider:
     def __init__(
         self, api_key: str | None, transport: GoogleTransport | None = None
@@ -403,5 +482,14 @@ class GoogleContextProvider:
                     if isinstance(payload.get("postalCode"), str)
                     else None
                 ),
+                "max_array_area_m2": _number(potential.get("maxArrayAreaMeters2")),
+                "max_sunshine_hours_per_year": _number(
+                    potential.get("maxSunshineHoursPerYear")
+                ),
+                "carbon_offset_kg_per_mwh": _number(
+                    potential.get("carbonOffsetFactorKgPerMwh")
+                ),
+                "panel_lifetime_years": _number(potential.get("panelLifetimeYears")),
+                "financial_scenarios": _solar_financials(potential),
             },
         )

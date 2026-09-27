@@ -225,6 +225,13 @@ only that section with an optional `category` (`everyday`, `schools`,
 Each category maps to a fixed list of Places API (New) types; other values
 return 400 without a provider call.
 
+Solar reports the closest building's modeled panel count, capacity, usable
+roof area, sunshine hours, and grid carbon factor. When the Solar API returns
+financial analyses, sale details offer one cash-purchase scenario per modeled
+monthly bill (installed cost, incentives, out-of-pocket cost, first-year and
+lifetime savings, and payback). These are Google's estimates from its own
+utility rates, costs, and incentives, shown in USD only; they are not quotes.
+
 For live results, enable billing and the Places API (New), Street View Static
 API, and Solar API in a Google Maps
 Platform project. Set `GOOGLE_MAPS_API_KEY` in the Flask server environment;

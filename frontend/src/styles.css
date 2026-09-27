@@ -377,6 +377,14 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .context-copyright { margin: 9px 0 0; }
 .context-attribution { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; padding-top: 8px; font-size: 10px; color: var(--muted); }
 .context-attribution > span:first-child { font-family: Roboto, Arial, sans-serif; font-size: 12px; font-weight: 400; color: #5e5e5e; white-space: nowrap; }
+.solar-financials { margin: 4px 0 10px; }
+.solar-bill { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; color: var(--muted); font-size: 11px; font-weight: 650; }
+.solar-bill select { height: 30px; padding: 0 8px; border: 1px solid #cfdad7; border-radius: 5px; background: #fff; color: var(--ink); font-size: 12px; }
+.solar-bill select:focus-visible { outline: 2px solid var(--green-deep); outline-offset: 2px; }
+.solar-rows { margin: 0; }
+.solar-rows > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid #edf1ef; font-size: 12px; }
+.solar-rows dt { color: var(--muted); }
+.solar-rows dd { margin: 0; font-weight: 690; font-variant-numeric: tabular-nums; text-align: right; }
 .nearby-controls { display: flex; flex-direction: column; gap: 9px; margin-bottom: 12px; }
 .nearby-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .nearby-chip { min-height: 28px; padding: 0 10px; border: 1px solid #cfdad7; border-radius: 999px; background: #fff; color: var(--ink); font-size: 11px; font-weight: 650; cursor: pointer; }
