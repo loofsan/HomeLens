@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections.abc import Mapping
 from datetime import date
 from typing import Any, Protocol, cast
@@ -23,6 +24,7 @@ STREET_VIEW_URL = "https://maps.googleapis.com/maps/api/streetview"
 SOLAR_URL = "https://solar.googleapis.com/v1/buildingInsights:findClosest"
 PLACES_RADIUS_M = 1500
 STREET_VIEW_RADIUS_M = 50
+PANO_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,128}")
 PLACES_TYPES = ("supermarket", "park", "school", "pharmacy")
 PLACES_FIELDS = (
     "places.displayName,places.location,places.primaryType,"
@@ -118,6 +120,21 @@ def _distance_m(lat_a: float, lon_a: float, lat_b: float, lon_b: float) -> int:
         + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
     )
     return round(6_371_000 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
+
+
+def _bearing_deg(
+    lat_a: float, lon_a: float, lat_b: float, lon_b: float
+) -> float | None:
+    """Initial great-circle bearing from A to B, clockwise from true north."""
+    if abs(lat_a - lat_b) < 1e-7 and abs(lon_a - lon_b) < 1e-7:
+        return None
+    lat1, lat2 = math.radians(lat_a), math.radians(lat_b)
+    dlon = math.radians(lon_b - lon_a)
+    y = math.sin(dlon) * math.cos(lat2)
+    x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(
+        dlon
+    )
+    return round(math.degrees(math.atan2(y, x)) % 360, 1) % 360
 
 
 def _coordinates(value: Any) -> tuple[float, float] | None:
@@ -231,69 +248,98 @@ class GoogleContextProvider:
             return section("unavailable", source, coverage, reason="no_results")
         return section("available", source, coverage, data={"places": places})
 
+    def _panorama(self, sale: HistoricalSale) -> dict[str, Any]:
+        """Find the nearest outdoor panorama and the heading toward the sale."""
+        assert self._api_key
+        payload = self._transport.json(
+            "GET",
+            f"{STREET_VIEW_URL}/metadata",
+            params={
+                "location": f"{sale.latitude},{sale.longitude}",
+                "radius": str(STREET_VIEW_RADIUS_M),
+                "source": "outdoor",
+                "key": self._api_key,
+            },
+        )
+        status = payload.get("status")
+        if status in ("ZERO_RESULTS", "NOT_FOUND"):
+            raise ProviderRequestError("not_covered")
+        if status != "OK":
+            raise ProviderRequestError("provider_error")
+        coordinates = _coordinates(payload.get("location"))
+        if not coordinates:
+            raise ProviderRequestError("invalid_response")
+        distance = _distance_m(sale.latitude, sale.longitude, *coordinates)
+        if distance > STREET_VIEW_RADIUS_M:
+            raise ProviderRequestError("not_covered")
+        pano_id = payload.get("pano_id")
+        return {
+            "pano_id": pano_id
+            if isinstance(pano_id, str) and PANO_ID_PATTERN.fullmatch(pano_id)
+            else None,
+            "distance_m": distance,
+            "heading_deg": _bearing_deg(*coordinates, sale.latitude, sale.longitude),
+            "captured": payload.get("date")
+            if isinstance(payload.get("date"), str)
+            else None,
+            "copyright": payload.get("copyright")
+            if isinstance(payload.get("copyright"), str)
+            else None,
+        }
+
     def street_view(self, sale: HistoricalSale) -> ContextSection:
         source = "Google Maps Street View Static API"
         coverage = {"radius_m": STREET_VIEW_RADIUS_M, "source": "outdoor"}
         if not self._api_key:
             return section("unavailable", source, coverage, reason="not_configured")
         try:
-            payload = self._transport.json(
-                "GET",
-                f"{STREET_VIEW_URL}/metadata",
-                params={
-                    "location": f"{sale.latitude},{sale.longitude}",
-                    "radius": str(STREET_VIEW_RADIUS_M),
-                    "source": "outdoor",
-                    "key": self._api_key,
-                },
-            )
+            panorama = self._panorama(sale)
         except ProviderRequestError as exc:
+            if exc.reason == "not_covered":
+                return section("unavailable", source, coverage, reason=exc.reason)
             return section("error", source, coverage, reason=exc.reason)
-        status = payload.get("status")
-        if status in ("ZERO_RESULTS", "NOT_FOUND"):
-            return section("unavailable", source, coverage, reason="not_covered")
-        if status != "OK":
-            return section("error", source, coverage, reason="provider_error")
-        coordinates = _coordinates(payload.get("location"))
-        if not coordinates:
-            return section("error", source, coverage, reason="invalid_response")
-        distance = _distance_m(sale.latitude, sale.longitude, *coordinates)
-        if distance > STREET_VIEW_RADIUS_M:
-            return section("unavailable", source, coverage, reason="not_covered")
+        heading = panorama["heading_deg"]
+        maps_url = (
+            "https://www.google.com/maps/@?api=1&map_action=pano&"
+            f"viewpoint={sale.latitude},{sale.longitude}"
+        )
+        if panorama["pano_id"]:
+            maps_url += f"&pano={panorama['pano_id']}"
+        if heading is not None:
+            maps_url += f"&heading={heading}"
         return section(
             "available",
             source,
             coverage,
             data={
-                "captured": payload.get("date")
-                if isinstance(payload.get("date"), str)
-                else None,
-                "copyright": payload.get("copyright")
-                if isinstance(payload.get("copyright"), str)
-                else None,
-                "distance_m": distance,
+                "captured": panorama["captured"],
+                "copyright": panorama["copyright"],
+                "distance_m": panorama["distance_m"],
+                "heading_deg": heading,
                 "image_url": f"/api/properties/{sale.id}/street-view/image",
-                "maps_url": (
-                    "https://www.google.com/maps/@?api=1&map_action=pano&"
-                    f"viewpoint={sale.latitude},{sale.longitude}"
-                ),
+                "maps_url": maps_url,
             },
         )
 
     def street_view_image(self, sale: HistoricalSale) -> tuple[bytes, str]:
         if not self._api_key:
             raise ProviderRequestError("not_configured")
-        return self._transport.image(
-            STREET_VIEW_URL,
-            params={
-                "size": "600x320",
-                "location": f"{sale.latitude},{sale.longitude}",
-                "radius": str(STREET_VIEW_RADIUS_M),
-                "source": "outdoor",
-                "return_error_code": "true",
-                "key": self._api_key,
-            },
-        )
+        panorama = self._panorama(sale)
+        params = {"size": "600x320", "return_error_code": "true"}
+        if panorama["pano_id"]:
+            params["pano"] = panorama["pano_id"]
+        else:
+            params.update(
+                {
+                    "location": f"{sale.latitude},{sale.longitude}",
+                    "radius": str(STREET_VIEW_RADIUS_M),
+                    "source": "outdoor",
+                }
+            )
+        if panorama["heading_deg"] is not None:
+            params["heading"] = str(panorama["heading_deg"])
+        params["key"] = self._api_key
+        return self._transport.image(STREET_VIEW_URL, params=params)
 
     def solar(self, sale: HistoricalSale) -> ContextSection:
         source = "Google Maps Solar API"

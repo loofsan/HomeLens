@@ -67,6 +67,12 @@ function NearbyPlaces({ section }: { section: ContextSection<{ places: NearbyPla
   )
 }
 
+const COMPASS = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest']
+
+function compassDirection(heading: number): string {
+  return COMPASS[Math.round((((heading % 360) + 360) % 360) / 45) % 8]
+}
+
 function StreetView({ section }: { section: ContextSection<StreetViewData> }) {
   const [imageFailed, setImageFailed] = useState(false)
   return (
@@ -78,7 +84,9 @@ function StreetView({ section }: { section: ContextSection<StreetViewData> }) {
             <img
               className="street-view-image"
               src={section.data.image_url}
-              alt="Nearby outdoor Street View imagery; it may not show this home"
+              alt={section.data.heading_deg === null
+                ? 'Nearby outdoor Street View imagery; it may not show this home'
+                : 'Nearby outdoor Street View imagery turned toward the recorded location; it may not show this home'}
               loading="lazy"
               onError={() => setImageFailed(true)}
             />
@@ -86,6 +94,9 @@ function StreetView({ section }: { section: ContextSection<StreetViewData> }) {
           {imageFailed && <p className="context-status">Street imagery could not be loaded.</p>}
           <p className="context-scope">
             {section.data.distance_m} m from the recorded coordinate
+            {section.data.heading_deg !== null
+              ? ` · facing ${compassDirection(section.data.heading_deg)} toward it`
+              : ''}
             {section.data.captured ? ` · captured ${section.data.captured}` : ''}
           </p>
           <p className="context-caution">Nearby imagery is not a verified photo of this home.</p>
