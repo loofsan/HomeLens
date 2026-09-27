@@ -11,6 +11,13 @@ const dollars = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
 })
 
+const EXAMPLES = [
+  '3+ beds under $400k in 27703',
+  'Townhouses built in 2010 or later',
+  'Single-family homes with at least 2,000 sq ft under $600k',
+  'Condos in 27701 with at least 2 baths',
+] as const
+
 function filterLabels(filters: InterpretedFilters): string[] {
   const labels: string[] = []
   if (filters.min_price !== undefined) labels.push(`From ${dollars.format(filters.min_price)}`)
@@ -42,7 +49,11 @@ export default function ConversationalSearch({
 
   useEffect(() => () => controller.current?.abort(), [])
 
-  async function run(question: string | null, clarification: string | null) {
+  async function run(
+    question: string | null,
+    clarification: string | null,
+    text: string = query,
+  ) {
     controller.current?.abort()
     const next = new AbortController()
     controller.current = next
@@ -50,7 +61,7 @@ export default function ConversationalSearch({
     setResult(null)
     setError(null)
     try {
-      const interpreted = await interpretSearch(query.trim(), question, clarification, next.signal)
+      const interpreted = await interpretSearch(text.trim(), question, clarification, next.signal)
       if (!next.signal.aborted) {
         setResult(interpreted)
         setAnswer('')
@@ -68,6 +79,12 @@ export default function ConversationalSearch({
   function submitQuery(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (query.trim().length >= 5) void run(null, null)
+  }
+
+  function tryExample(example: string) {
+    setQuery(example)
+    setAnswer('')
+    void run(null, null, example)
   }
 
   function submitAnswer(event: FormEvent<HTMLFormElement>) {
@@ -89,7 +106,7 @@ export default function ConversationalSearch({
           id="search-description"
           type="text"
           maxLength={400}
-          placeholder="3+ beds under $400k in 27703"
+          placeholder="Describe the sold homes you want to see"
           value={query}
           onChange={(event) => {
             controller.current?.abort()
@@ -104,6 +121,16 @@ export default function ConversationalSearch({
           <Search size={17} aria-hidden="true" />
         </button>
       </form>
+      {!query && !result && !loading && !error && (
+        <div className="search-examples" role="group" aria-label="Example searches">
+          <span>Try</span>
+          {EXAMPLES.map((example) => (
+            <button key={example} type="button" onClick={() => tryExample(example)}>
+              {example}
+            </button>
+          ))}
+        </div>
+      )}
       {loading && <p className="conversational-state" role="status">Interpreting search…</p>}
       {error && <p className="conversational-state" role="alert">{error}</p>}
       {result?.status === 'unsupported' && (
