@@ -449,8 +449,17 @@ served while high-price calibration remains unresolved.
 
 ## Next slices
 
-1. Establish the property data contract and import a permitted dataset.
-2. Add validated search filters and persistence behind repository interfaces.
-3. Add neighborhood, Census, Places, Street View, and solar adapters.
-4. Build reproducible valuation baselines, evaluations, and versioned inference.
-5. Add structured AI search and descriptions with regression evaluations.
+The historical catalog, search, map interface, provider context, versioned
+valuation, and conversational search are in place. Remaining work, in order:
+
+1. Point Street View toward the recorded home (#52), choose nearby categories
+   and radius (#53), and show solar financial analysis (#54).
+2. Filter by property type, square feet, and year built (#55), with example
+   prompts and community links (#56).
+3. Serve ZCTA demographics (#57) and reported crime by police beat (#58).
+4. Evaluate a five-year ZIP-level value outlook (#59).
+5. Validate live Google context (#41) and conversational search (#44) with
+   local credentials.
+
+High-price value ranges (#20) and current listings (#36) stay blocked until a
+fresh evaluation cohort and a licensed listing source exist.
