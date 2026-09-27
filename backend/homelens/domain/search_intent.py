@@ -15,6 +15,11 @@ class SuggestedFilters(BaseModel):
     min_beds: float | None = Field(ge=0, le=20)
     min_baths: float | None = Field(ge=0, le=20)
     zip: str | None = Field(pattern=r"^\d{5}$")
+    property_type: Literal["single_family", "townhouse", "condo"] | None
+    min_sqft: int | None = Field(ge=0, le=100_000)
+    max_sqft: int | None = Field(ge=0, le=100_000)
+    min_year_built: int | None = Field(ge=1700, le=2100)
+    max_year_built: int | None = Field(ge=1700, le=2100)
 
 
 class SearchIntent(BaseModel):

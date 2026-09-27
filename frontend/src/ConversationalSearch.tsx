@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowRight, Search, Sparkles } from 'lucide-react'
 import { interpretSearch } from './api'
+import { PROPERTY_TYPE_LABELS } from './propertyTypes'
 import type { InterpretedFilters, SearchIntentResponse } from './types'
 
 const dollars = new Intl.NumberFormat('en-US', {
@@ -17,6 +18,11 @@ function filterLabels(filters: InterpretedFilters): string[] {
   if (filters.min_beds !== undefined) labels.push(`${filters.min_beds}+ beds`)
   if (filters.min_baths !== undefined) labels.push(`${filters.min_baths}+ baths`)
   if (filters.zip) labels.push(`ZIP ${filters.zip}`)
+  if (filters.property_type) labels.push(PROPERTY_TYPE_LABELS[filters.property_type])
+  if (filters.min_sqft !== undefined) labels.push(`From ${filters.min_sqft.toLocaleString()} sq ft`)
+  if (filters.max_sqft !== undefined) labels.push(`Up to ${filters.max_sqft.toLocaleString()} sq ft`)
+  if (filters.min_year_built !== undefined) labels.push(`Built ${filters.min_year_built} or later`)
+  if (filters.max_year_built !== undefined) labels.push(`Built ${filters.max_year_built} or earlier`)
   return labels
 }
 

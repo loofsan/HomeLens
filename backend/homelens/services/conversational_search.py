@@ -10,12 +10,30 @@ from homelens.domain.search_intent import SearchIntent
 UNSUPPORTED_PATTERN = re.compile(
     r"\b(?:active listings?|currently (?:listed|for sale)|for sale|schools?|"
     r"crime|safe(?:st)? neighborhoods?|pools?|near(?:by)?|within \d+ miles?|"
+    r"acres?|lot size|"
     r"chapel hill|sql|dump (?:all |the )?data|ignore (?:your |previous )?"
     r"instructions?)\b",
     re.IGNORECASE,
 )
 VAGUE_PRICE_PATTERN = re.compile(
     r"\b(?:around|about|roughly|approximately)\s+\$?\s*\d", re.IGNORECASE
+)
+
+
+SUPPORTED_MESSAGE = (
+    "This search supports historical sales by price, minimum beds or baths, ZIP, "
+    "home type, square feet, and year built. That request includes an "
+    "unsupported condition."
+)
+DEFAULT_QUESTION = "Which price, beds, baths, ZIP, home type, size, or year built?"
+RANGES = (
+    ("min_price", "max_price", "Should the minimum price be lower than the maximum?"),
+    ("min_sqft", "max_sqft", "Should the minimum size be smaller than the maximum?"),
+    (
+        "min_year_built",
+        "max_year_built",
+        "Should the earliest year built come before the latest?",
+    ),
 )
 
 
@@ -65,10 +83,7 @@ class ConversationalSearchService:
                 "status": "unsupported",
                 "filters": {},
                 "question": None,
-                "message": (
-                    "This search supports historical sales by price, minimum beds "
-                    "or baths, and ZIP. That request includes an unsupported condition."
-                ),
+                "message": (SUPPORTED_MESSAGE),
             }
         if VAGUE_PRICE_PATTERN.search(combined) and clarification is None:
             return {
@@ -90,19 +105,14 @@ class ConversationalSearchService:
                 "status": "unsupported",
                 "filters": {},
                 "question": None,
-                "message": (
-                    "This search supports historical sales by price, minimum beds "
-                    "or baths, and ZIP. That request includes an unsupported condition."
-                ),
+                "message": (SUPPORTED_MESSAGE),
             }
         if proposal.status == "clarify":
             asked = (proposal.question or "").strip()
             return {
                 "status": "clarify",
                 "filters": {},
-                "question": asked[:200]
-                if asked
-                else "Which price, beds, baths, or ZIP should I use?",
+                "question": asked[:200] if asked else DEFAULT_QUESTION,
                 "message": None,
             }
         if proposal.question and proposal.question.strip():
@@ -117,20 +127,17 @@ class ConversationalSearchService:
             return {
                 "status": "clarify",
                 "filters": {},
-                "question": "Which price, beds, baths, or ZIP should I use?",
+                "question": DEFAULT_QUESTION,
                 "message": None,
             }
-        if (
-            "min_price" in filters
-            and "max_price" in filters
-            and filters["min_price"] > filters["max_price"]
-        ):
-            return {
-                "status": "clarify",
-                "filters": {},
-                "question": "Should the minimum price be lower than the maximum?",
-                "message": None,
-            }
+        for low, high, question in RANGES:
+            if low in filters and high in filters and filters[low] > filters[high]:
+                return {
+                    "status": "clarify",
+                    "filters": {},
+                    "question": question,
+                    "message": None,
+                }
         return {
             "status": "ready",
             "filters": filters,

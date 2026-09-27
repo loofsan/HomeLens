@@ -167,6 +167,7 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .filter-grid input::placeholder { color: #9aa8a9; }
 .filter-grid input:hover, .filter-grid select:hover { border-color: #8baea7; }
 .zip-field { grid-column: span 1; }
+.wide-field { grid-column: 1 / -1; }
 .apply-button {
   align-self: end;
   height: 37px;
@@ -182,6 +183,11 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
   gap: 7px;
 }
 .apply-button:hover { background: var(--green-deep); }
+.more-filters-toggle { display: inline-flex; align-items: center; gap: 6px; margin-top: 11px; padding: 0; border: 0; background: transparent; color: var(--green-deep); font-size: 12px; font-weight: 700; cursor: pointer; }
+.more-filters-toggle svg { transition: transform 120ms ease; }
+.more-filters-toggle .is-up { transform: rotate(180deg); }
+.more-filters-toggle:focus-visible { outline: 2px solid var(--green-deep); outline-offset: 2px; }
+.more-filter-grid { margin-top: 10px; }
 .form-error { margin: 10px 0 0; color: #a94331; font-size: 12px; }
 
 .icon-button {

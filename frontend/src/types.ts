@@ -56,12 +56,19 @@ export type ValuationResponse = {
   disclaimer: string
 }
 
+export type PropertyTypeSlug = 'single_family' | 'townhouse' | 'condo'
+
 export type SearchFilters = {
   minPrice: string
   maxPrice: string
   minBeds: string
   minBaths: string
   zip: string
+  propertyType: PropertyTypeSlug | ''
+  minSqft: string
+  maxSqft: string
+  minYearBuilt: string
+  maxYearBuilt: string
 }
 
 export type InterpretedFilters = {
@@ -70,6 +77,11 @@ export type InterpretedFilters = {
   min_beds?: number
   min_baths?: number
   zip?: string
+  property_type?: PropertyTypeSlug
+  min_sqft?: number
+  max_sqft?: number
+  min_year_built?: number
+  max_year_built?: number
 }
 
 export type SearchIntentResponse = {

@@ -24,6 +24,11 @@ def _filters(values: dict[str, Any]) -> SuggestedFilters:
         min_beds=values.get("min_beds"),
         min_baths=values.get("min_baths"),
         zip=values.get("zip"),
+        property_type=values.get("property_type"),
+        min_sqft=values.get("min_sqft"),
+        max_sqft=values.get("max_sqft"),
+        min_year_built=values.get("min_year_built"),
+        max_year_built=values.get("max_year_built"),
     )
 
 
@@ -216,10 +221,57 @@ def test_openai_adapter_refuses_incomplete_output(
 
 def test_offline_evaluator_records_aggregate_statuses_and_case_ids() -> None:
     report = evaluate_cases(ConversationalSearchService(FixtureProvider()), CASES)
-    assert report["passed"] == 13
-    assert report["by_expected_status"]["unsupported"] == {"passed": 7, "total": 7}
+    assert report["passed"] == 20
+    assert report["by_expected_status"] == {
+        "ready": {"passed": 8, "total": 8},
+        "clarify": {"passed": 3, "total": 3},
+        "unsupported": {"passed": 9, "total": 9},
+    }
     changed = [*CASES]
     changed[0] = {**changed[0], "filters": {"max_price": 1}}
     failed = evaluate_cases(ConversationalSearchService(FixtureProvider()), changed)
-    assert failed["passed"] == 12
+    assert failed["passed"] == 19
     assert failed["failures"] == [{"id": "price_beds_zip", "expected_status": "ready"}]
+
+
+@pytest.mark.parametrize(
+    ("low", "high", "values"),
+    [
+        ("min_sqft", "max_sqft", (2500, 1500)),
+        ("min_year_built", "max_year_built", (2010, 1990)),
+    ],
+)
+def test_inverted_size_or_year_range_asks_instead_of_searching(
+    low: str, high: str, values: tuple[int, int]
+) -> None:
+    class InvertedProvider:
+        def interpret(
+            self, query: str, question: str | None, answer: str | None
+        ) -> SearchIntent:
+            return SearchIntent(
+                status="ready",
+                filters=_filters({low: values[0], high: values[1]}),
+                question=None,
+                unsupported=[],
+            )
+
+    result = ConversationalSearchService(InvertedProvider()).interpret("find sales")
+    assert result["status"] == "clarify"
+    assert result["filters"] == {}
+
+
+def test_lot_size_is_refused_before_any_provider_call() -> None:
+    class UnusedProvider:
+        def interpret(
+            self, query: str, question: str | None, answer: str | None
+        ) -> SearchIntent:
+            raise AssertionError("provider called")
+
+    service = ConversationalSearchService(UnusedProvider())
+    for query in ("Homes on two acres", "Sold homes with a large lot size"):
+        assert service.interpret(query)["status"] == "unsupported"
+
+
+def test_property_type_outside_the_catalog_fails_schema_validation() -> None:
+    with pytest.raises(ValueError):
+        _filters({"property_type": "mobile_home"})

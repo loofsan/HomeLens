@@ -12,6 +12,12 @@ PropertyType = Literal[
     "Condo/Co-op",
 ]
 CATALOG_SCHEMA_VERSION = 1
+PropertyTypeSlug = Literal["single_family", "townhouse", "condo"]
+PROPERTY_TYPE_SLUGS: dict[PropertyTypeSlug, PropertyType] = {
+    "single_family": "Single Family Residential",
+    "townhouse": "Townhouse",
+    "condo": "Condo/Co-op",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +55,11 @@ class PropertyQuery:
     min_beds: float | None = None
     min_baths: float | None = None
     zip: str | None = None
+    property_type: PropertyType | None = None
+    min_sqft: float | None = None
+    max_sqft: float | None = None
+    min_year_built: int | None = None
+    max_year_built: int | None = None
     bounds: MapBounds | None = None
     page: int = 1
     page_size: int = 20

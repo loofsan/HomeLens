@@ -128,7 +128,9 @@ existing imported catalog outside that worktree; keep the catalog out of Git.
 
 After importing, `GET /api/properties` searches the local historical sales.
 Optional filters are `min_price`, `max_price`, `min_beds`, `min_baths`, `zip`,
-and a complete `south`, `west`, `north`, `east` map rectangle. `page` starts at 1;
+`property_type` (`single_family`, `townhouse`, or `condo`), `min_sqft`,
+`max_sqft`, `min_year_built`, `max_year_built`, and a complete `south`,
+`west`, `north`, `east` map rectangle. Inverted ranges return 400. `page` starts at 1;
 `page_size` defaults to 20 and is capped at 100. Results are ordered by sale
 date (newest first) and stable record ID. `GET /api/properties/<id>` returns a
 single sale or 404. Both successful responses include source vintage and
@@ -142,7 +144,9 @@ affecting `/api/health`.
 `POST /api/search/interpret` accepts a JSON `query` and optionally a previous
 `question` with its `answer`. It returns a validated filter preview, a
 clarifying question, or an unsupported-condition message. Only sold price,
-minimum beds/baths, and ZIP can be inferred. The route does not run SQL, search
+minimum beds/baths, ZIP, home type, interior square feet, and year built can be
+inferred; lot size, home style, and location-based conditions are reported as
+unsupported. The route does not run SQL, search
 the catalog, or generate property facts; applying a preview calls the existing
 deterministic property search. Manual filters remain available without AI.
 Property detail descriptions are assembled from the historical catalog record
@@ -172,7 +176,8 @@ intended for local testing and demos, not public deployment.
 ## Historical sale interface
 
 The React/Vite interface searches the local catalog with price, beds, baths,
-and ZIP filters. It synchronizes the result list with a map using supplied
+and ZIP filters, plus home type, square feet, and year built under "More
+filters". It synchronizes the result list with a map using supplied
 coordinates, supports searching the visible map area, and shows responsive
 sale details. It labels every result as historical and does not present these
 records as available homes. Start the Flask API as described below, then in a

@@ -22,6 +22,7 @@ import ConversationalSearch from './ConversationalSearch'
 import MapPanel from './MapPanel'
 import PropertyContext from './PropertyContext'
 import PropertyValuation from './PropertyValuation'
+import { PROPERTY_TYPE_LABELS } from './propertyTypes'
 import type {
   CatalogSource,
   HistoricalSale,
@@ -37,6 +38,31 @@ const emptyFilters: SearchFilters = {
   minBeds: '',
   minBaths: '',
   zip: '',
+  propertyType: '',
+  minSqft: '',
+  maxSqft: '',
+  minYearBuilt: '',
+  maxYearBuilt: '',
+}
+
+function optional(value: number | undefined): string {
+  return value === undefined ? '' : String(value)
+}
+
+function validateFilters(draft: SearchFilters): string | null {
+  if (draft.zip && !/^\d{5}$/.test(draft.zip)) return 'ZIP must be five digits.'
+  const ranges: [string, string, string][] = [
+    [draft.minPrice, draft.maxPrice, 'Minimum price must not exceed maximum price.'],
+    [draft.minSqft, draft.maxSqft, 'Minimum square feet must not exceed maximum.'],
+    [draft.minYearBuilt, draft.maxYearBuilt, 'Earliest year built must not be after the latest.'],
+  ]
+  for (const [low, high, message] of ranges) {
+    if (low && high && Number(low) > Number(high)) return message
+  }
+  for (const year of [draft.minYearBuilt, draft.maxYearBuilt]) {
+    if (year && !/^\d{4}$/.test(year)) return 'Year built must be a four-digit year.'
+  }
+  return null
 }
 
 const money = new Intl.NumberFormat('en-US', {
@@ -219,6 +245,14 @@ function SaleDetail({
 export default function App() {
   const [draft, setDraft] = useState<SearchFilters>(emptyFilters)
   const [filters, setFilters] = useState<SearchFilters>(emptyFilters)
+  const [moreFiltersExpanded, setMoreFiltersExpanded] = useState(false)
+  const moreFilterCount = [
+    draft.propertyType,
+    draft.minSqft,
+    draft.maxSqft,
+    draft.minYearBuilt,
+    draft.maxYearBuilt,
+  ].filter(Boolean).length
   const [bounds, setBounds] = useState<MapBounds | null>(null)
   const [page, setPage] = useState(1)
   const [response, setResponse] = useState<SearchResponse | null>(null)
@@ -324,16 +358,9 @@ export default function App() {
 
   function applyFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (draft.zip && !/^\d{5}$/.test(draft.zip)) {
-      setFormError('ZIP must be five digits.')
-      return
-    }
-    if (
-      draft.minPrice &&
-      draft.maxPrice &&
-      Number(draft.minPrice) > Number(draft.maxPrice)
-    ) {
-      setFormError('Minimum price must not exceed maximum price.')
+    const problem = validateFilters(draft)
+    if (problem) {
+      setFormError(problem)
       return
     }
     setFormError(null)
@@ -345,14 +372,22 @@ export default function App() {
 
   function applyInterpretedFilters(interpreted: InterpretedFilters) {
     const next: SearchFilters = {
-      minPrice: interpreted.min_price === undefined ? '' : String(interpreted.min_price),
-      maxPrice: interpreted.max_price === undefined ? '' : String(interpreted.max_price),
-      minBeds: interpreted.min_beds === undefined ? '' : String(interpreted.min_beds),
-      minBaths: interpreted.min_baths === undefined ? '' : String(interpreted.min_baths),
+      minPrice: optional(interpreted.min_price),
+      maxPrice: optional(interpreted.max_price),
+      minBeds: optional(interpreted.min_beds),
+      minBaths: optional(interpreted.min_baths),
       zip: interpreted.zip ?? '',
+      propertyType: interpreted.property_type ?? '',
+      minSqft: optional(interpreted.min_sqft),
+      maxSqft: optional(interpreted.max_sqft),
+      minYearBuilt: optional(interpreted.min_year_built),
+      maxYearBuilt: optional(interpreted.max_year_built),
     }
     setDraft(next)
     setFilters(next)
+    if (next.propertyType || next.minSqft || next.maxSqft || next.minYearBuilt || next.maxYearBuilt) {
+      setMoreFiltersExpanded(true)
+    }
     setBounds(null)
     setPage(1)
     setSelectedId(null)
@@ -494,6 +529,82 @@ export default function App() {
               <button className="apply-button" type="submit">
                 <Search size={17} aria-hidden="true" /> Apply filters
               </button>
+            </div>
+            {filtersExpanded && (
+              <button
+                className="more-filters-toggle"
+                type="button"
+                aria-expanded={moreFiltersExpanded}
+                aria-controls="more-filter-grid"
+                onClick={() => setMoreFiltersExpanded((value) => !value)}
+              >
+                More filters{moreFilterCount > 0 ? ` (${moreFilterCount})` : ''}
+                <ChevronDown size={14} aria-hidden="true" className={moreFiltersExpanded ? 'is-up' : ''} />
+              </button>
+            )}
+            <div
+              className="filter-grid more-filter-grid"
+              id="more-filter-grid"
+              hidden={!filtersExpanded || !moreFiltersExpanded}
+            >
+              <label className="wide-field">
+                <span>Home type</span>
+                <select
+                  value={draft.propertyType}
+                  onChange={(event) => setDraft({ ...draft, propertyType: event.target.value as SearchFilters['propertyType'] })}
+                >
+                  <option value="">Any</option>
+                  {Object.entries(PROPERTY_TYPE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Min sq ft</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  placeholder="No min"
+                  value={draft.minSqft}
+                  onChange={(event) => setDraft({ ...draft, minSqft: event.target.value })}
+                />
+              </label>
+              <label>
+                <span>Max sq ft</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  placeholder="No max"
+                  value={draft.maxSqft}
+                  onChange={(event) => setDraft({ ...draft, maxSqft: event.target.value })}
+                />
+              </label>
+              <label>
+                <span>Built from</span>
+                <input
+                  type="number"
+                  min="1700"
+                  max="2100"
+                  step="1"
+                  placeholder="Any year"
+                  value={draft.minYearBuilt}
+                  onChange={(event) => setDraft({ ...draft, minYearBuilt: event.target.value })}
+                />
+              </label>
+              <label>
+                <span>Built through</span>
+                <input
+                  type="number"
+                  min="1700"
+                  max="2100"
+                  step="1"
+                  placeholder="Any year"
+                  value={draft.maxYearBuilt}
+                  onChange={(event) => setDraft({ ...draft, maxYearBuilt: event.target.value })}
+                />
+              </label>
             </div>
             {filtersExpanded && formError && <p className="form-error" role="alert">{formError}</p>}
           </form>

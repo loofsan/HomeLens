@@ -115,6 +115,19 @@ async function mockBackend(
       })
       return
     }
+    if (payload.query === 'Townhouses built in 1990 or later between 1,000 and 1,500 sq ft') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'ready',
+          filters: { property_type: 'townhouse', min_sqft: 1000, max_sqft: 1500, min_year_built: 1990 },
+          question: null,
+          message: null,
+        }),
+      })
+      return
+    }
     const unsupported = payload.query.startsWith('Active listings')
     const clarify = payload.query === 'Homes around $400k' && !payload.answer
     await route.fulfill({
@@ -183,6 +196,13 @@ async function mockBackend(
       .filter((sale) => !params.has('min_beds') || sale.beds >= Number(params.get('min_beds')))
       .filter((sale) => !params.has('min_baths') || sale.baths >= Number(params.get('min_baths')))
       .filter((sale) => !params.has('zip') || sale.zip === params.get('zip'))
+      .filter((sale) => !params.has('property_type') || sale.property_type === {
+        single_family: 'Single Family Residential', townhouse: 'Townhouse', condo: 'Condo/Co-op',
+      }[params.get('property_type') as string])
+      .filter((sale) => !params.has('min_sqft') || sale.square_feet >= Number(params.get('min_sqft')))
+      .filter((sale) => !params.has('max_sqft') || sale.square_feet <= Number(params.get('max_sqft')))
+      .filter((sale) => !params.has('min_year_built') || sale.year_built >= Number(params.get('min_year_built')))
+      .filter((sale) => !params.has('max_year_built') || sale.year_built <= Number(params.get('max_year_built')))
       .filter((sale) => {
         if (!params.has('south')) return true
         return (
@@ -242,6 +262,52 @@ test('AI search previews filters, clarifies, and keeps manual search available',
   await page.getByLabel('Min price').fill('300000')
   await page.getByRole('button', { name: 'Apply filters' }).click()
   await expect(page.getByText('1 recorded sales')).toBeVisible()
+})
+
+test('home type, size, and year built filter manually and from AI search', async ({ page }, testInfo) => {
+  await mockBackend(page)
+  const searches: string[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (url.pathname === '/api/properties') searches.push(url.search)
+  })
+  await page.goto('/')
+  await expect(page.getByText('3 recorded sales')).toBeVisible()
+  await expect(page.getByLabel('Home type')).toBeHidden()
+  await page.getByRole('button', { name: 'More filters' }).click()
+  await page.getByLabel('Home type').selectOption('single_family')
+  await page.getByRole('button', { name: 'Apply filters' }).click()
+  await expect(page.getByText('1 recorded sales')).toBeVisible()
+  await expect(page.getByRole('button', { name: /View 2 Main St/ })).toBeVisible()
+
+  await page.getByLabel('Home type').selectOption('')
+  await page.getByLabel('Max sq ft').fill('1500')
+  await page.getByLabel('Built from').fill('1990')
+  await page.getByRole('button', { name: 'Apply filters' }).click()
+  await expect(page.getByText('1 recorded sales')).toBeVisible()
+  await expect(page.getByRole('button', { name: /View 1 Main St/ })).toBeVisible()
+  expect(searches.at(-1)).toContain('max_sqft=1500')
+  expect(searches.at(-1)).toContain('min_year_built=1990')
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-more-filters.png`) })
+
+  await page.getByLabel('Min sq ft').fill('2000')
+  await page.getByRole('button', { name: 'Apply filters' }).click()
+  await expect(page.getByRole('alert').getByText('Minimum square feet must not exceed maximum.')).toBeVisible()
+  await page.getByLabel('Min sq ft').fill('')
+  await page.getByLabel('Built through').fill('1980')
+  await page.getByRole('button', { name: 'Apply filters' }).click()
+  await expect(page.getByRole('alert').getByText('Earliest year built must not be after the latest.')).toBeVisible()
+
+  await page.getByLabel('Describe your search').fill('Townhouses built in 1990 or later between 1,000 and 1,500 sq ft')
+  await page.getByRole('button', { name: 'Interpret search' }).click()
+  await expect(page.getByText('Townhouse · From 1,000 sq ft · Up to 1,500 sq ft · Built 1990 or later')).toBeVisible()
+  await page.getByRole('button', { name: 'Apply search' }).click()
+  await expect(page.getByText('1 recorded sales')).toBeVisible()
+  await page.getByRole('button', { name: 'Filters', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'More filters (4)' })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByLabel('Home type')).toHaveValue('townhouse')
+  await expect(page.getByLabel('Min sq ft')).toHaveValue('1000')
+  await expect(page.getByLabel('Built through')).toHaveValue('')
 })
 
 test('synthetic catalog stays visibly fictional and skips property providers', async ({ page }, testInfo) => {

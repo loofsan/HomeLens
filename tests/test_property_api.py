@@ -39,7 +39,15 @@ def _app(tmp_path: Path) -> Flask:
             zip="27705",
             latitude=36.1,
             longitude=-79.1,
-            **{**base, "sold_price_usd": 500000.0, "beds": 4.0, "baths": 3.0},
+            **{
+                **base,
+                "sold_price_usd": 500000.0,
+                "beds": 4.0,
+                "baths": 3.0,
+                "square_feet": 2400.0,
+                "year_built": 2015,
+                "property_type": "Single Family Residential",
+            },
         ),
         HistoricalSale(
             id="sale_" + "c" * 32,
@@ -48,7 +56,15 @@ def _app(tmp_path: Path) -> Flask:
             zip="27517",
             latitude=35.9,
             longitude=-79.0,
-            **{**base, "sold_price_usd": 220000.0, "beds": 2.0, "baths": 1.0},
+            **{
+                **base,
+                "sold_price_usd": 220000.0,
+                "beds": 2.0,
+                "baths": 1.0,
+                "square_feet": 900.0,
+                "year_built": 1975,
+                "property_type": "Condo/Co-op",
+            },
         ),
     ]
     report = {
@@ -121,8 +137,40 @@ def test_search_combines_filters_and_reports_empty_result(tmp_path: Path) -> Non
 
 
 @pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("property_type=single_family", ["2 Main St"]),
+        ("property_type=condo", ["3 Main St"]),
+        ("property_type=townhouse&min_beds=3", ["1 Main St"]),
+        ("min_sqft=1000&max_sqft=1200", ["1 Main St"]),
+        ("min_sqft=1201", ["2 Main St"]),
+        ("max_sqft=1200", ["1 Main St", "3 Main St"]),
+        ("min_year_built=1990&max_year_built=1990", ["1 Main St"]),
+        ("min_year_built=2000", ["2 Main St"]),
+        ("max_year_built=1989", ["3 Main St"]),
+        ("property_type=condo&min_year_built=2000", []),
+    ],
+)
+def test_search_filters_by_type_size_and_year_built(
+    tmp_path: Path, query: str, expected: list[str]
+) -> None:
+    response = _app(tmp_path).test_client().get("/api/properties?" + query)
+    assert response.status_code == 200
+    assert sorted(item["address"] for item in response.get_json()["items"]) == expected
+
+
+@pytest.mark.parametrize(
     ("query", "field"),
     [
+        ("property_type=Townhouse", "property_type"),
+        ("property_type=land", "property_type"),
+        ("min_sqft=-5", "min_sqft"),
+        ("max_sqft=100001", "max_sqft"),
+        ("min_sqft=2000&max_sqft=1000", "max_sqft"),
+        ("min_year_built=199", "min_year_built"),
+        ("min_year_built=1990.5", "min_year_built"),
+        ("max_year_built=2200", "max_year_built"),
+        ("min_year_built=2010&max_year_built=2000", "max_year_built"),
         ("min_price=-1", "min_price"),
         ("max_price=NaN", "max_price"),
         ("min_beds=none", "min_beds"),
