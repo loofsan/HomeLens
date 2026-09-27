@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { getSale, searchSales } from './api'
+import AreaDemographics from './AreaDemographics'
 import ConversationalSearch from './ConversationalSearch'
 import ExploreDurham from './ExploreDurham'
 import MapPanel from './MapPanel'
@@ -214,6 +215,7 @@ function SaleDetail({
             </section>
           )}
           {!source?.synthetic && <PropertyValuation key={sale.id} propertyId={sale.id} />}
+          {!source?.synthetic && <AreaDemographics key={`demographics-${sale.id}`} propertyId={sale.id} />}
           {!source?.synthetic && <PropertyContext propertyId={sale.id} />}
           {!source?.synthetic && <ExploreDurham />}
           <div className="detail-source">

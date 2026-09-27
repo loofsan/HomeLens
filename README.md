@@ -311,6 +311,28 @@ population, age, and housing-unit estimates with margins of error and explicit
 unavailable values. It is Durham County context only, not a ZIP-level measure
 or a property/model feature.
 
+To prepare ZIP-area demographics for sale details, download two CSV tables
+from data.census.gov for the ZIP Code Tabulation Areas (ZCTAs) in the catalog:
+the ACS 5-Year Data Profiles DP05 (demographics) and DP03 (economics) for the
+same year. Save them in `data/raw` with their exported names
+(`ACSDP5Y<year>.DP05-*.csv` and `ACSDP5Y<year>.DP03-*.csv`) and run:
+
+```powershell
+.venv\Scripts\python -m homelens.data.acs_zcta
+```
+
+The ignored `data/processed/acs_zcta_profiles.json` contains, per ZCTA,
+population, median age, under-18 and 65+ shares, median household income, and
+mutually exclusive race and Hispanic-origin shares, each with its 90% margin of
+error and source hashes. Suppressed values stay unavailable; top- and
+bottom-coded values keep their marker. `GET /api/properties/<id>/demographics`
+returns the profile for the sale's recorded ZIP, labeled as a ZCTA estimate for
+the whole area; it returns 503 until the file is prepared (set
+`ACS_ZCTA_PROFILES_PATH` to use another location). These figures are context
+only and are never model features. With the 2020-2024 exports for the 13
+catalog ZCTAs, every profile parses; 27709 (Research Triangle Park) reports no
+resident population, so its sales show demographics as unavailable.
+
 To audit crime `BEAT` codes against the [City of Durham Police Beats layer](https://webgis.durhamnc.gov/server/rest/services/PublicServices/Public_Safety/MapServer/8),
 place its WGS84 GeoJSON export at `data/raw/durham_police_beats.geojson` and run:
 

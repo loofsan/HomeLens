@@ -201,3 +201,27 @@ export type CrimeBeatsResponse = {
   }
   features: CrimeBeatFeature[]
 }
+
+export type AcsValue = {
+  value: number | null
+  status: 'available' | 'unavailable' | 'not_applicable' | 'top_coded' | 'bottom_coded'
+  source_token?: string
+}
+
+export type AcsMetric = {
+  estimate: AcsValue
+  estimate_margin_of_error: AcsValue
+  percent?: AcsValue
+  percent_margin_of_error?: AcsValue
+}
+
+export type DemographicsResponse = {
+  property_id: string
+  source: string
+  geography: { kind: 'zcta'; id: string; note: string }
+  status: 'available' | 'unavailable'
+  reason: string | null
+  dataset?: string
+  period?: string
+  metrics?: Record<string, AcsMetric>
+}

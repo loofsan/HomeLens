@@ -2,6 +2,7 @@ import type {
   ContextSection,
   CrimeBeatsResponse,
   CrimeCategory,
+  DemographicsResponse,
   DetailResponse,
   NearbyPlace,
   MapBounds,
@@ -116,5 +117,14 @@ export async function getCrimeBeats(
   if (year !== null) params.set('year', String(year))
   return readResponse<CrimeBeatsResponse>(
     await fetch(`/api/crime/beats?${params}`, { signal }),
+  )
+}
+
+export async function getDemographics(
+  id: string,
+  signal: AbortSignal,
+): Promise<DemographicsResponse> {
+  return readResponse<DemographicsResponse>(
+    await fetch(`/api/properties/${encodeURIComponent(id)}/demographics`, { signal }),
   )
 }
