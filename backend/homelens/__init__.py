@@ -11,11 +11,13 @@ from homelens.adapters.google_maps import GoogleContextProvider
 from homelens.adapters.openai_search import OpenAISearchProvider
 from homelens.api.context import context_bp
 from homelens.api.conversational_search import conversational_search_bp
+from homelens.api.crime import crime_bp
 from homelens.api.health import health_bp
 from homelens.api.properties import properties_bp
 from homelens.api.valuation import valuation_bp
 from homelens.data.property_repository import SqlitePropertyRepository
 from homelens.services.conversational_search import ConversationalSearchService
+from homelens.services.crime_map import CrimeMapService
 from homelens.services.property_context import PropertyContextService
 from homelens.services.property_search import PropertySearchService
 from homelens.services.valuation import ValuationService
@@ -38,6 +40,10 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
         "VALUATION_ARTIFACT_PATH",
         os.environ.get("VALUATION_ARTIFACT_PATH", "models/valuation_v1"),
     )
+    app.config.setdefault(
+        "CRIME_BEATS_PATH",
+        os.environ.get("CRIME_BEATS_PATH", "data/processed/crime_beats.geojson"),
+    )
     if test_config is not None:
         app.config.update(test_config)
 
@@ -55,9 +61,11 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
     app.extensions["valuation"] = ValuationService(
         Path(app.config["VALUATION_ARTIFACT_PATH"])
     )
+    app.extensions["crime_map"] = CrimeMapService(Path(app.config["CRIME_BEATS_PATH"]))
     app.register_blueprint(health_bp)
     app.register_blueprint(properties_bp)
     app.register_blueprint(context_bp)
     app.register_blueprint(conversational_search_bp)
     app.register_blueprint(valuation_bp)
+    app.register_blueprint(crime_bp)
     return app

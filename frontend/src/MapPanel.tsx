@@ -9,8 +9,9 @@ import {
   useMap,
   ZoomControl,
 } from 'react-leaflet'
-import { LocateFixed, X } from 'lucide-react'
-import type { HistoricalSale, MapBounds } from './types'
+import { Layers, LocateFixed, X } from 'lucide-react'
+import { CrimeLegend, CrimePolygons, useCrimeBeats } from './CrimeLayer'
+import type { CrimeCategory, HistoricalSale, MapBounds } from './types'
 
 const center: [number, number] = [36.025, -78.92]
 const tileUrl =
@@ -80,6 +81,10 @@ export default function MapPanel({
   onClearArea: () => void
 }) {
   const [map, setMap] = useState<LeafletMap | null>(null)
+  const [crimeOn, setCrimeOn] = useState(false)
+  const [crimeYear, setCrimeYear] = useState<number | null>(null)
+  const [crimeCategory, setCrimeCategory] = useState<CrimeCategory>('violent')
+  const crime = useCrimeBeats(crimeOn && !synthetic, crimeYear, crimeCategory)
 
   function searchArea() {
     if (!map) return
@@ -114,6 +119,7 @@ export default function MapPanel({
           resetToken={resetToken}
           onMapReady={setMap}
         />
+        {crimeOn && !synthetic && crime.data && <CrimePolygons data={crime.data} />}
         {items.map((sale) => {
           const isSelected = selected?.id === sale.id
           return (
@@ -137,6 +143,17 @@ export default function MapPanel({
         })}
       </MapContainer>
       <div className="map-actions">
+        {!synthetic && (
+          <button
+            className={`map-search-button${crimeOn ? ' is-active' : ''}`}
+            type="button"
+            aria-pressed={crimeOn}
+            onClick={() => setCrimeOn((value) => !value)}
+          >
+            <Layers size={17} aria-hidden="true" />
+            Crime by beat
+          </button>
+        )}
         <button className="map-search-button" type="button" onClick={searchArea}>
           <LocateFixed size={17} aria-hidden="true" />
           Search this area
@@ -153,6 +170,17 @@ export default function MapPanel({
           </button>
         )}
       </div>
+      {crimeOn && !synthetic && (
+        <CrimeLegend
+          data={crime.data}
+          error={crime.error}
+          loading={crime.loading}
+          year={crimeYear}
+          category={crimeCategory}
+          onYear={setCrimeYear}
+          onCategory={setCrimeCategory}
+        />
+      )}
       <div className="map-count">
         {items.length} {synthetic ? (items.length === 1 ? 'sample point' : 'sample points') : 'sales'} on this page
       </div>
