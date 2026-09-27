@@ -119,6 +119,29 @@ export type SolarData = {
   panel_capacity_watts: number
   max_array_capacity_kw: number
   postal_code_matches: boolean | null
+  max_array_area_m2: number | null
+  max_sunshine_hours_per_year: number | null
+  carbon_offset_kg_per_mwh: number | null
+  panel_lifetime_years: number | null
+  financial_scenarios: SolarScenario[]
+}
+
+export type SolarScenario = {
+  monthly_bill_usd: number
+  is_default_bill: boolean
+  panels_count: number | null
+  yearly_energy_dc_kwh: number | null
+  solar_percentage: number | null
+  net_metering_allowed: boolean | null
+  lifetime_cost_without_solar_usd: number | null
+  lifetime_remaining_bill_usd: number | null
+  upfront_cost_usd: number
+  incentives_usd: number | null
+  out_of_pocket_cost_usd: number | null
+  payback_years: number | null
+  savings_year1_usd: number | null
+  savings_lifetime_usd: number | null
+  financially_viable: boolean | null
 }
 
 export type PropertyContextResponse = {

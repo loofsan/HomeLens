@@ -6,6 +6,7 @@ import type {
   NearbyPlace,
   PropertyContextResponse,
   SolarData,
+  SolarScenario,
   StreetViewData,
 } from './types'
 
@@ -201,25 +202,84 @@ function StreetView({ section }: { section: ContextSection<StreetViewData> }) {
   )
 }
 
+const dollars = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+
+function money(value: number | null): string {
+  return value === null ? 'Not reported' : dollars.format(value)
+}
+
+function SolarFinancials({ scenarios, lifetime }: { scenarios: SolarScenario[]; lifetime: number | null }) {
+  const initial = Math.max(0, scenarios.findIndex((item) => item.is_default_bill))
+  const [selected, setSelected] = useState(initial)
+  const scenario = scenarios[selected] ?? scenarios[0]
+  const years = lifetime ? `${lifetime} years` : 'panel lifetime'
+  const rows: [string, string][] = [
+    ['Share of electricity covered', scenario.solar_percentage === null ? 'Not reported' : `${Math.round(scenario.solar_percentage)}%`],
+    ['Modeled panels', scenario.panels_count === null ? 'Not reported' : String(scenario.panels_count)],
+    ['Installed cost', money(scenario.upfront_cost_usd)],
+    ['Incentives', money(scenario.incentives_usd)],
+    ['Out of pocket', money(scenario.out_of_pocket_cost_usd)],
+    ['First-year savings', money(scenario.savings_year1_usd)],
+    [`Savings over ${years}`, money(scenario.savings_lifetime_usd)],
+    ['Payback', scenario.payback_years === null ? 'Does not pay back in the modeled period' : `${scenario.payback_years.toLocaleString(undefined, { maximumFractionDigits: 1 })} years`],
+  ]
+  return (
+    <div className="solar-financials">
+      <label className="solar-bill">
+        <span>Monthly electric bill</span>
+        <select value={selected} onChange={(event) => setSelected(Number(event.target.value))}>
+          {scenarios.map((item, index) => (
+            <option key={item.monthly_bill_usd} value={index}>
+              {dollars.format(item.monthly_bill_usd)}{item.is_default_bill ? ' (typical for area)' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      <dl className="solar-rows">
+        {rows.map(([label, value]) => (
+          <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+        ))}
+      </dl>
+    </div>
+  )
+}
+
 function Solar({ section }: { section: ContextSection<SolarData> }) {
+  const data = section.data
   return (
     <section className="context-subsection" aria-label="Solar context">
       <h4><Sun size={16} aria-hidden="true" /> Nearby roof solar</h4>
-      {section.status === 'available' && section.data ? (
+      {section.status === 'available' && data ? (
         <>
           <div className="solar-stats">
-            <div><strong>{section.data.max_array_panels_count}</strong><span>Max modeled panels</span></div>
-            <div><strong>{section.data.max_array_capacity_kw.toLocaleString()} kW</strong><span>Indicative capacity</span></div>
+            <div><strong>{data.max_array_panels_count}</strong><span>Max modeled panels</span></div>
+            <div><strong>{data.max_array_capacity_kw.toLocaleString()} kW</strong><span>Indicative capacity</span></div>
+            {data.max_array_area_m2 !== null && (
+              <div><strong>{Math.round(data.max_array_area_m2).toLocaleString()} m²</strong><span>Usable roof area</span></div>
+            )}
+            {data.max_sunshine_hours_per_year !== null && (
+              <div><strong>{Math.round(data.max_sunshine_hours_per_year).toLocaleString()} hrs</strong><span>Sunshine per year</span></div>
+            )}
           </div>
           <p className="context-scope">
-            Closest detected building · {section.data.building_distance_m} m away
-            {section.data.imagery_date ? ` · imagery ${section.data.imagery_date}` : ''}
-            {section.data.imagery_quality ? ` · ${section.data.imagery_quality.toLowerCase()} quality` : ''}
+            Closest detected building · {data.building_distance_m} m away
+            {data.imagery_date ? ` · imagery ${data.imagery_date}` : ''}
+            {data.imagery_quality ? ` · ${data.imagery_quality.toLowerCase()} quality` : ''}
+            {data.carbon_offset_kg_per_mwh !== null ? ` · grid carbon ${Math.round(data.carbon_offset_kg_per_mwh)} kg CO₂/MWh` : ''}
           </p>
-          <p className="context-caution">
-            This roof is not verified as belonging to the recorded property. No financial estimate is implied.
-          </p>
-          {section.data.postal_code_matches === false && (
+          {data.financial_scenarios.length > 0 ? (
+            <>
+              <SolarFinancials scenarios={data.financial_scenarios} lifetime={data.panel_lifetime_years} />
+              <p className="context-caution">
+                Cash-purchase estimates modeled by the Google Solar API from its own local utility rates, installation costs, and incentives. They are not a quote, and this roof is not verified as belonging to the recorded property.
+              </p>
+            </>
+          ) : (
+            <p className="context-caution">
+              No financial analysis is available for this building. This roof is not verified as belonging to the recorded property.
+            </p>
+          )}
+          {data.postal_code_matches === false && (
             <p className="context-caution">The detected building has a different ZIP code.</p>
           )}
         </>
