@@ -377,6 +377,15 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .context-copyright { margin: 9px 0 0; }
 .context-attribution { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; padding-top: 8px; font-size: 10px; color: var(--muted); }
 .context-attribution > span:first-child { font-family: Roboto, Arial, sans-serif; font-size: 12px; font-weight: 400; color: #5e5e5e; white-space: nowrap; }
+.nearby-controls { display: flex; flex-direction: column; gap: 9px; margin-bottom: 12px; }
+.nearby-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.nearby-chip { min-height: 28px; padding: 0 10px; border: 1px solid #cfdad7; border-radius: 999px; background: #fff; color: var(--ink); font-size: 11px; font-weight: 650; cursor: pointer; }
+.nearby-chip:hover { border-color: #8baea7; }
+.nearby-chip[aria-pressed="true"] { border-color: var(--green); background: var(--green); color: #fff; }
+.nearby-chip:disabled { cursor: progress; }
+.nearby-chip:focus-visible, .nearby-radius select:focus-visible { outline: 2px solid var(--green-deep); outline-offset: 2px; }
+.nearby-radius { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; font-weight: 650; }
+.nearby-radius select { height: 30px; padding: 0 8px; border: 1px solid #cfdad7; border-radius: 5px; background: #fff; color: var(--ink); font-size: 12px; }
 .nearby-list { margin: 0; padding: 0; list-style: none; }
 .nearby-list li { padding: 9px 0; border-top: 1px solid #edf1ef; }
 .nearby-main { display: flex; justify-content: space-between; align-items: center; gap: 9px; }

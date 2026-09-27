@@ -401,7 +401,7 @@ test('property context loads on demand with partial and sourced states', async (
       coordinate_source: 'historical_sale_catalog',
       nearby_places: {
         status: 'available', reason: null, source: 'Google Maps Places API (New)',
-        coverage: { radius_m: 1500, distance_kind: 'straight_line' },
+        coverage: { category: 'everyday', radius_m: 1500, distance_kind: 'straight_line' },
         data: { places: [{
           name: 'Duke Park', type: 'park', distance_m: 430,
           maps_url: 'https://maps.google.com/?cid=123',
@@ -459,4 +459,82 @@ test('property context loads on demand with partial and sourced states', async (
   await page.getByRole('region', { name: 'Solar context' }).scrollIntoViewIfNeeded()
   await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-context.png`) })
   expect(calls).toBe(2)
+})
+
+test('nearby places switch category and radius without reloading other context', async ({ page }, testInfo) => {
+  await mockBackend(page)
+  let contextCalls = 0
+  const nearbyRequests: string[] = []
+  await page.route('**/api/properties/*/context', async (route) => {
+    contextCalls += 1
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        property_id: sales[0].id,
+        coordinate_source: 'historical_sale_catalog',
+        nearby_places: {
+          status: 'available', reason: null, source: 'Google Maps Places API (New)',
+          coverage: { category: 'everyday', radius_m: 1500, distance_kind: 'straight_line' },
+          data: { places: [{ name: 'Duke Park', type: 'park', distance_m: 430, maps_url: null, attributions: [] }] },
+        },
+        street_view: {
+          status: 'unavailable', reason: 'not_covered', source: 'Google Maps Street View Static API',
+          coverage: { radius_m: 50 }, data: null,
+        },
+        solar: {
+          status: 'unavailable', reason: 'not_covered', source: 'Google Maps Solar API',
+          coverage: { property_match_verified: false }, data: null,
+        },
+      }),
+    })
+  })
+  await page.route('**/api/properties/*/context/nearby?*', async (route) => {
+    const url = new URL(route.request().url())
+    nearbyRequests.push(url.search)
+    const category = url.searchParams.get('category')
+    const radius = Number(url.searchParams.get('radius_m'))
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(category === 'bars' ? {
+        status: 'unavailable', reason: 'no_results', source: 'Google Maps Places API (New)',
+        coverage: { category, radius_m: radius }, data: null,
+      } : {
+        status: 'available', reason: null, source: 'Google Maps Places API (New)',
+        coverage: { category, radius_m: radius, distance_kind: 'straight_line' },
+        data: { places: [{
+          name: 'Lakewood Elementary', type: 'primary_school', distance_m: radius === 5000 ? 3900 : 1210,
+          maps_url: null, attributions: [],
+        }] },
+      }),
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: /View 1 Main St/ }).click()
+  await page.getByRole('button', { name: 'Load context' }).click()
+  await expect(page.getByText('Everyday · within 1.5 km · straight-line distance')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Everyday' })).toHaveAttribute('aria-pressed', 'true')
+
+  await page.getByRole('button', { name: 'Schools' }).click()
+  await expect(page.getByText('Lakewood Elementary')).toBeVisible()
+  await expect(page.getByText('primary school · 1.21 km')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Schools' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByText('Duke Park')).toHaveCount(0)
+
+  await page.getByLabel('Within').selectOption('5000')
+  await expect(page.getByText('Schools · within 5 km · straight-line distance')).toBeVisible()
+  await expect(page.getByText('primary school · 3.9 km')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Bars' }).click()
+  await expect(page.getByText('No matching places were found in this area.')).toBeVisible()
+
+  expect(nearbyRequests).toEqual([
+    '?category=schools&radius_m=1500',
+    '?category=schools&radius_m=5000',
+    '?category=bars&radius_m=5000',
+  ])
+  expect(contextCalls).toBe(1)
+  await page.getByRole('region', { name: 'Nearby places' }).scrollIntoViewIfNeeded()
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-nearby.png`) })
 })
