@@ -45,9 +45,13 @@ function MapSync({
     const frame = requestAnimationFrame(() => {
       if (map.getContainer().offsetWidth === 0) return
       map.invalidateSize()
-      map.flyTo([selected.latitude, selected.longitude], Math.max(map.getZoom(), 12), {
-        duration: 0.35,
-      })
+      const target: [number, number] = [selected.latitude, selected.longitude]
+      const zoom = Math.max(map.getZoom(), 12)
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        map.setView(target, zoom, { animate: false })
+      } else {
+        map.flyTo(target, zoom, { duration: 0.35 })
+      }
     })
     return () => cancelAnimationFrame(frame)
   }, [map, mode, selected])

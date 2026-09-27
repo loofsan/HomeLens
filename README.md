@@ -210,7 +210,10 @@ pnpm run test:e2e
 ```
 
 The E2E tests stub API and tile responses, so they do not require the private
-catalog or contact the public tile server. Frontend checks run in GitHub
+catalog or contact the public tile server. `e2e/accessibility.spec.ts` runs axe-core
+WCAG 2.1 A/AA checks on the search, filter, AI preview, sale detail, and crime
+layer views at desktop and mobile sizes, and checks a keyboard-only search,
+open, and Escape-to-close flow. Map movement respects reduced-motion settings. Frontend checks run in GitHub
 Actions on pull requests.
 
 ## Optional Google context
