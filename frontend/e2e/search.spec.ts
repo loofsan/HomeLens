@@ -340,6 +340,85 @@ test('example searches preview filters and area links open externally', async ({
   await expect(explore.getByRole('link', { name: 'Events in Durham' })).toHaveAttribute('href', 'https://www.discoverdurham.com/events/')
 })
 
+test('crime layer shows beat counts with scope and keeps sales clickable', async ({ page }, testInfo) => {
+  await mockBackend(page)
+  const requests: string[] = []
+  const square = (west: number, south: number, east: number, north: number) => ({
+    type: 'Polygon',
+    coordinates: [[[west, south], [east, south], [east, north], [west, north], [west, south]]],
+  })
+  await page.route('**/api/crime/beats?*', async (route) => {
+    const url = new URL(route.request().url())
+    requests.push(url.search)
+    const year = Number(url.searchParams.get('year') ?? 2025)
+    const category = url.searchParams.get('category')
+    const years = [
+      { year: 2024, complete: true, first_report_date: '2024-01-01', last_report_date: '2024-12-31' },
+      { year: 2025, complete: true, first_report_date: '2025-01-01', last_report_date: '2025-12-31' },
+      { year: 2026, complete: false, first_report_date: '2026-01-01', last_report_date: '2026-05-13' },
+    ]
+    const counts = [[12, 3.1], [30, 9.5], [55, 22.4], [80, 41.0], [140, 88.2]]
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        type: 'FeatureCollection',
+        metadata: {
+          year,
+          coverage: years.find((item) => item.year === year),
+          years,
+          category,
+          category_label: category === 'violent' ? 'Violent offenses' : 'Property offenses',
+          definition: 'FBI violent crime: murder and nonnegligent manslaughter, rape, robbery, and aggravated assault',
+          source: 'City of Durham Police Department crime table',
+          source_layer: 'https://webgis.durhamnc.gov/',
+          excluded_rows: { missing_beat: 12, unmatched_beat: 3, invalid_report_date: 0 },
+          notes: ['Counts describe whole beats, not the risk at any specific home or street.'],
+        },
+        features: [
+          ...counts.map(([count, rate], index) => ({
+            type: 'Feature',
+            properties: { beat: String(111 + index), district: 'D1', area_km2: 2, count, per_km2: rate },
+            geometry: square(-79.0 + index * 0.03, 35.96, -78.97 + index * 0.03, 35.99),
+          })),
+          {
+            type: 'Feature',
+            properties: { beat: '299', district: 'D2', area_km2: 12, count: null, per_km2: null },
+            geometry: square(-79.0, 36.06, -78.9, 36.1),
+          },
+        ],
+      }),
+    })
+  })
+  await page.goto('/')
+  if (testInfo.project.name === 'mobile') {
+    await page.getByRole('button', { name: 'Map', exact: true }).click()
+  }
+  await page.getByRole('button', { name: 'Crime by beat' }).click()
+  const legend = page.getByRole('region', { name: 'Crime by police beat' })
+  await expect(legend.getByText('Reported violent offense records per km²')).toBeVisible()
+  await expect(legend.getByText('No linked reports')).toBeVisible()
+  await expect(legend.getByLabel('Year')).toHaveValue('2025')
+  await expect(page.locator('.leaflet-crime-beats-pane path')).toHaveCount(6)
+  await legend.getByLabel('Year').selectOption('2026')
+  await expect(legend.getByText('Partial year: reports through 2026-05-13.')).toBeVisible()
+  await legend.getByLabel('Offenses').selectOption('property')
+  await expect(legend.getByText('Reported property offense records per km²')).toBeVisible()
+  await legend.getByText('About this layer').click()
+  await expect(legend.getByText(/not the risk at any specific home/)).toBeVisible()
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-crime.png`) })
+  expect(requests).toEqual(['?category=violent', '?category=violent&year=2026', '?category=property&year=2026'])
+  if (testInfo.project.name === 'desktop') {
+    await page.locator('.leaflet-overlay-pane path.leaflet-interactive').first().click()
+    await expect(page.getByRole('complementary', { name: 'Historical sale details' })).toBeVisible()
+    await page.getByRole('button', { name: 'Close sale details' }).click()
+  }
+
+  await page.getByRole('button', { name: 'Crime by beat' }).click()
+  await expect(legend).toHaveCount(0)
+  await expect(page.locator('.leaflet-crime-beats-pane path')).toHaveCount(0)
+})
+
 test('synthetic catalog stays visibly fictional and skips property providers', async ({ page }, testInfo) => {
   await mockBackend(page, { synthetic: true })
   const providerRequests: string[] = []
@@ -363,6 +442,7 @@ test('synthetic catalog stays visibly fictional and skips property providers', a
   await expect(page.getByText(/No transaction occurred/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Estimate' })).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Explore Durham' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Crime by beat' })).toHaveCount(0)
   expect(providerRequests).toEqual([])
   await page.screenshot({ path: testInfo.outputPath('synthetic-detail.png') })
   await page.getByRole('button', { name: 'Close sale details' }).click()

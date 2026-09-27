@@ -327,6 +327,34 @@ was modified in 2026 but gives no historical effective dates. This audit does
 not establish incident locations, historical beat boundaries, or property/ZIP-
 level crime facts. No incident records are written.
 
+To prepare the map's crime layer from the same crime table and police-beat
+polygons, run:
+
+```powershell
+.venv\Scripts\python -m homelens.data.crime_beats
+```
+
+The ignored `data/processed/crime_beats.geojson` holds simplified beat
+polygons with offense-record counts per calendar year in two categories that
+follow the FBI definitions expressed as NIBRS codes: violent (murder and
+nonnegligent manslaughter, rape, robbery, aggravated assault) and property
+(burglary, larceny-theft, motor vehicle theft, arson). It contains no
+addresses, incident identifiers, or incident rows, and records how many rows
+were excluded for a missing, unmatched, or undated beat. With the supplied
+exports, 51,951 of 51,966 in-scope records are counted; 12 lack a beat and 3
+use `SSA`, so beat 299 has no linked reports. A year is complete only when the
+export covers January 1 through December 31.
+
+`GET /api/crime/beats?year=<year>&category=violent|property` returns one year
+and category as GeoJSON with counts and records per km² (default: latest
+complete year, violent). The map's "Crime by beat" toggle shows it as a shaded
+layer beneath the sale points with a legend and scope notes. The public table
+covers the city police jurisdiction only and under-represents some offenses
+(for example, it has very few homicide records), so the layer shows reported
+records by beat, not complete crime statistics or risk at a specific home.
+Beat boundaries are the current layer. The endpoint returns 503 until the file
+is prepared (set `CRIME_BEATS_PATH` to use another location).
+
 To prepare the first residential modeling cohort and its audit:
 
 ```powershell

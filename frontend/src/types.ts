@@ -163,3 +163,41 @@ export type PropertyContextResponse = {
   street_view: ContextSection<StreetViewData>
   solar: ContextSection<SolarData>
 }
+
+export type CrimeCategory = 'violent' | 'property'
+
+export type CrimeYear = {
+  year: number
+  complete: boolean
+  first_report_date: string
+  last_report_date: string
+}
+
+export type CrimeBeatFeature = {
+  type: 'Feature'
+  properties: {
+    beat: string
+    district: string | null
+    area_km2: number
+    count: number | null
+    per_km2: number | null
+  }
+  geometry: { type: 'Polygon' | 'MultiPolygon'; coordinates: unknown }
+}
+
+export type CrimeBeatsResponse = {
+  type: 'FeatureCollection'
+  metadata: {
+    year: number
+    coverage: CrimeYear
+    years: CrimeYear[]
+    category: CrimeCategory
+    category_label: string
+    definition: string
+    source: string
+    source_layer: string
+    excluded_rows: Record<string, number>
+    notes: string[]
+  }
+  features: CrimeBeatFeature[]
+}

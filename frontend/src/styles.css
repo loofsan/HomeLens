@@ -320,6 +320,21 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 }
 .map-search-button:hover, .map-clear-button:hover { background: var(--green-soft); }
 .map-clear-button { width: 38px; padding: 0; }
+.map-search-button.is-active { border-color: #a8401f; background: #fbeee8; color: #8a3419; }
+.crime-legend { position: absolute; left: 12px; bottom: 30px; z-index: 900; width: min(300px, calc(100% - 24px)); max-height: calc(100% - 150px); overflow-y: auto; padding: 12px 13px; border: 1px solid var(--line); border-radius: 7px; background: rgba(255, 255, 255, 0.97); box-shadow: 0 6px 18px rgba(20, 45, 45, 0.14); font-size: 11px; line-height: 1.45; color: var(--ink); }
+.crime-legend p { margin: 6px 0 0; color: var(--muted); }
+.crime-legend-controls { display: flex; gap: 8px; }
+.crime-legend-controls label { flex: 1; display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-weight: 650; }
+.crime-legend-controls select { height: 28px; padding: 0 6px; border: 1px solid #cfdad7; border-radius: 5px; background: #fff; color: var(--ink); font-size: 12px; }
+.crime-legend .crime-legend-title { margin-top: 9px; color: var(--ink); font-weight: 700; }
+.crime-scale { margin: 5px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.crime-scale li { display: flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; }
+.crime-swatch { width: 16px; height: 11px; border: 1px solid rgba(111, 74, 60, 0.45); border-radius: 2px; }
+.crime-swatch.is-empty { background: #c3cccb; border-style: dashed; }
+.crime-legend .crime-warning { color: #8a3419; font-weight: 650; }
+.crime-legend details { margin-top: 7px; }
+.crime-legend summary { cursor: pointer; color: var(--green-deep); font-weight: 700; }
+.crime-legend details ul { margin: 5px 0 0; padding-left: 16px; color: var(--muted); }
 .map-count {
   position: absolute;
   right: 18px;
