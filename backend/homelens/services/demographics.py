@@ -61,6 +61,14 @@ class DemographicsService:
                 "status": "unavailable",
                 "reason": "zcta_not_prepared",
             }
+        population = profile.get("total_population", {}).get("estimate", {})
+        if population.get("value") == 0:
+            return {
+                **base,
+                **details,
+                "status": "unavailable",
+                "reason": "no_resident_population",
+            }
         return {
             **base,
             **details,

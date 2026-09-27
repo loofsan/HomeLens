@@ -329,7 +329,9 @@ bottom-coded values keep their marker. `GET /api/properties/<id>/demographics`
 returns the profile for the sale's recorded ZIP, labeled as a ZCTA estimate for
 the whole area; it returns 503 until the file is prepared (set
 `ACS_ZCTA_PROFILES_PATH` to use another location). These figures are context
-only and are never model features.
+only and are never model features. With the 2020-2024 exports for the 13
+catalog ZCTAs, every profile parses; 27709 (Research Triangle Park) reports no
+resident population, so its sales show demographics as unavailable.
 
 To audit crime `BEAT` codes against the [City of Durham Police Beats layer](https://webgis.durhamnc.gov/server/rest/services/PublicServices/Public_Safety/MapServer/8),
 place its WGS84 GeoJSON export at `data/raw/durham_police_beats.geojson` and run:

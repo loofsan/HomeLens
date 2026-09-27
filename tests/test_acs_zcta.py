@@ -249,3 +249,25 @@ def test_api_reports_unprepared_profiles_without_breaking_search(
     assert response.get_json()["error"]["code"] == "demographics_unavailable"
     assert client.get("/api/properties").status_code == 200
     assert client.get("/api/health").status_code == 200
+
+
+def test_api_marks_zcta_without_residents_unavailable(tmp_path: Path) -> None:
+    report = prepare_zcta_profiles(_raw(tmp_path))
+    report["profiles"]["27560"] = {
+        **report["profiles"]["27703"],
+        "total_population": {
+            "estimate": {"value": 0, "status": "available"},
+            "estimate_margin_of_error": {"value": 14, "status": "available"},
+        },
+    }
+    profiles = tmp_path / "profiles.json"
+    profiles.write_text(json.dumps(report))
+    payload = (
+        _app(tmp_path, profiles)
+        .test_client()
+        .get(f"/api/properties/sale_{'b' * 32}/demographics")
+        .get_json()
+    )
+    assert payload["status"] == "unavailable"
+    assert payload["reason"] == "no_resident_population"
+    assert "metrics" not in payload

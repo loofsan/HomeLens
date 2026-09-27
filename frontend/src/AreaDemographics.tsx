@@ -82,7 +82,9 @@ export default function AreaDemographics({ propertyId }: { propertyId: string })
         <p className="context-status">
           {profile.reason === 'zcta_not_prepared'
             ? `No census profile has been prepared for ZIP ${profile.geography.id}.`
-            : 'Area demographics are not available for this record.'}
+            : profile.reason === 'no_resident_population'
+              ? `The census reports no resident population for ZIP code area ${profile.geography.id}.`
+              : 'Area demographics are not available for this record.'}
         </p>
       )}
       {profile && profile.status === 'available' && metrics && (
