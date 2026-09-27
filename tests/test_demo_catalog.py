@@ -82,6 +82,13 @@ def test_demo_api_labels_examples_and_never_calls_provider_or_model(
         assert image.status_code == 422
         assert image.json["error"]["code"] == "synthetic_demo"
 
+    trend = client.get(f"/api/properties/{sale_id}/value-trend")
+    assert trend.status_code == 200
+    assert trend.json["reason"] == "synthetic_demo"
+    demographics = client.get(f"/api/properties/{sale_id}/demographics")
+    assert demographics.status_code == 200
+    assert demographics.json["reason"] == "synthetic_demo"
+
     valuation = client.get(f"/api/properties/{sale_id}/valuation")
     assert valuation.status_code == 422
     assert (

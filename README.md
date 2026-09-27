@@ -349,6 +349,31 @@ was modified in 2026 but gives no historical effective dates. This audit does
 not establish incident locations, historical beat boundaries, or property/ZIP-
 level crime facts. No incident records are written.
 
+The supplied `data/raw/zipcode_saleprice.csv` has the layout of a Zillow
+Research ZIP download with smooth monthly levels, consistent with a Zillow Home
+Value Index (ZHVI) series of unconfirmed variant; it is not observed median
+sale prices. The executed `notebooks/zip_value_outlook.ipynb` backtests
+five-year ZIP forecasts (no change, linear drifts, a damped trend, and ARIMA,
+as in the prototype) on rolling January origins. No method beat the no-change
+baseline at every 1-5 year horizon on both development (2006-2015) and
+holdout (2016-2020) origins, so no forward projection is served. Install the
+notebook extras to rerun it (`statsmodels` is used there only).
+
+To prepare the index for sale details, run:
+
+```powershell
+.venv\Scripts\python -m homelens.data.zip_index
+```
+
+`GET /api/properties/<id>/value-trend` moves the recorded sale price along its
+ZIP's index from the sale month to the latest index month (April 2025 in the
+supplied file) and returns the monthly points, with `forecast: null`. Sales in
+ZIPs outside the index or after its last month are reported as unavailable.
+The detail view shows this as "Value since sale" with a chart/table toggle and
+labels it an index adjustment, not an appraisal or current market value. The
+endpoint returns 503 until the file is prepared (set `ZIP_VALUE_INDEX_PATH` to
+use another location).
+
 To prepare the map's crime layer from the same crime table and police-beat
 polygons, run:
 
@@ -533,7 +558,8 @@ valuation, and conversational search are in place. Remaining work, in order:
 2. Filter by property type, square feet, and year built (#55), with example
    prompts and community links (#56).
 3. Serve ZCTA demographics (#57) and reported crime by police beat (#58).
-4. Evaluate a five-year ZIP-level value outlook (#59).
+4. Evaluate a five-year ZIP-level value outlook (#59): evaluated; no forecast
+   is served, and sale details show an index-adjusted value since sale.
 5. Validate live Google context (#41) and conversational search (#44) with
    local credentials.
 

@@ -446,6 +446,26 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .explore-area a { display: inline-flex; align-items: center; gap: 6px; color: var(--green-deep); font-size: 12px; font-weight: 700; text-decoration: none; }
 .explore-area a:hover { text-decoration: underline; }
 .explore-source { color: var(--muted); font-size: 11px; }
+.value-trend { padding: 20px 23px; border-bottom: 1px solid var(--line); }
+.value-trend-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.value-trend-heading h3 { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 13px; }
+.trend-toggle { display: inline-flex; border: 1px solid #cfdad7; border-radius: 999px; overflow: hidden; }
+.trend-toggle button { min-height: 26px; padding: 0 10px; border: 0; background: #fff; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; }
+.trend-toggle button[aria-pressed="true"] { background: var(--green); color: #fff; }
+.trend-toggle button:focus-visible { outline: 2px solid var(--green-deep); outline-offset: -2px; }
+.trend-summary { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.trend-summary strong { font-size: 22px; font-weight: 750; }
+.trend-summary span { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.trend-chart { display: block; width: 100%; height: auto; margin: 4px 0 10px; }
+.trend-grid { stroke: #e3eae8; stroke-width: 1; }
+.trend-axis { fill: var(--muted); font-size: 9px; font-variant-numeric: tabular-nums; }
+.trend-line { fill: none; stroke: var(--green); stroke-width: 2.2; stroke-linejoin: round; }
+.trend-sale { fill: #fff; stroke: var(--coral); stroke-width: 2; }
+.trend-latest { fill: var(--green); stroke: #fff; stroke-width: 2; }
+.trend-table { width: 100%; margin: 4px 0 10px; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.trend-table th { padding: 5px 0; color: var(--muted); font-size: 10px; font-weight: 700; text-align: left; text-transform: uppercase; }
+.trend-table th:last-child, .trend-table td:last-child { text-align: right; }
+.trend-table td { padding: 6px 0; border-top: 1px solid #edf1ef; }
 .area-demographics { padding: 20px 23px; border-bottom: 1px solid var(--line); }
 .area-demographics h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; font-size: 13px; }
 .demographics-subheading { margin: 4px 0 8px; font-size: 12px; font-weight: 720; }
