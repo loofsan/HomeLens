@@ -177,7 +177,11 @@ intended for local testing and demos, not public deployment.
 
 The React/Vite interface searches the local catalog with price, beds, baths,
 and ZIP filters, plus home type, square feet, and year built under "More
-filters". It synchronizes the result list with a map using supplied
+filters". Four example searches next to the AI search box run the same
+preview flow; each is a ready case in the search-intent regression set. Sale
+details end with curated external links to Durham community, events, parks,
+library, and school-assignment pages (hidden for synthetic records). The page
+synchronizes the result list with a map using supplied
 coordinates, supports searching the visible map area, and shows responsive
 sale details. It labels every result as historical and does not present these
 records as available homes. Start the Flask API as described below, then in a

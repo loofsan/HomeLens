@@ -106,6 +106,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: #ffffff;
   border-right: 1px solid var(--line);
   z-index: 3;
@@ -136,6 +138,11 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .conversational-form input, .conversational-clarification input { min-width: 0; flex: 1; height: 38px; padding: 0 10px; border: 1px solid #cfdad7; border-right: 0; border-radius: 5px 0 0 5px; background: #fff; font-size: 12px; }
 .conversational-form button, .conversational-clarification button { display: grid; flex: 0 0 39px; place-items: center; border: 1px solid var(--green); border-radius: 0 5px 5px 0; background: var(--green); color: #fff; }
 .conversational-form button:disabled, .conversational-clarification button:disabled { border-color: #cfdad7; background: #e7eeec; color: #8fa3a1; }
+.search-examples { display: flex; align-items: center; gap: 5px; margin: 9px -22px 0; padding: 0 22px 2px; overflow-x: auto; scrollbar-width: thin; }
+.search-examples > span { flex: 0 0 auto; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.search-examples button { flex: 0 0 auto; white-space: nowrap; min-height: 26px; padding: 0 9px; border: 1px solid #cfdad7; border-radius: 999px; background: #fff; color: var(--ink); font-size: 11px; text-align: left; cursor: pointer; }
+.search-examples button:hover { border-color: #8baea7; background: var(--green-soft); }
+.search-examples button:focus-visible { outline: 2px solid var(--green-deep); outline-offset: 2px; }
 .conversational-state { margin: 9px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .conversational-preview, .conversational-clarification { padding-top: 11px; }
 .conversational-preview-label { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
@@ -228,7 +235,7 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 }
 .area-clear-inline:hover { text-decoration: underline; }
 
-.results-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.results-scroll { flex: 1 1 auto; min-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
 .sale-row {
   display: flex;
   width: 100%;
@@ -408,6 +415,14 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .solar-stats > div { display: flex; flex-direction: column; gap: 3px; }
 .solar-stats strong { font-size: 18px; font-weight: 740; }
 .solar-stats span { color: var(--muted); font-size: 11px; }
+.explore-area { padding: 20px 23px; border-bottom: 1px solid var(--line); }
+.explore-area h3 { margin: 0 0 6px; font-size: 13px; }
+.explore-area > p { margin: 0 0 10px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.explore-area ul { margin: 0; padding: 0; list-style: none; }
+.explore-area li { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid #edf1ef; }
+.explore-area a { display: inline-flex; align-items: center; gap: 6px; color: var(--green-deep); font-size: 12px; font-weight: 700; text-decoration: none; }
+.explore-area a:hover { text-decoration: underline; }
+.explore-source { color: var(--muted); font-size: 11px; }
 .detail-source { padding: 23px; }
 .detail-source h3 { margin-bottom: 13px; font-size: 13px; }
 .detail-source p { margin-bottom: 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }

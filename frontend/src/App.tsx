@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { getSale, searchSales } from './api'
 import ConversationalSearch from './ConversationalSearch'
+import ExploreDurham from './ExploreDurham'
 import MapPanel from './MapPanel'
 import PropertyContext from './PropertyContext'
 import PropertyValuation from './PropertyValuation'
@@ -214,6 +215,7 @@ function SaleDetail({
           )}
           {!source?.synthetic && <PropertyValuation key={sale.id} propertyId={sale.id} />}
           {!source?.synthetic && <PropertyContext propertyId={sale.id} />}
+          {!source?.synthetic && <ExploreDurham />}
           <div className="detail-source">
             <h3>Record source</h3>
             <p>{source?.name ?? 'Historical sold-home export'}</p>

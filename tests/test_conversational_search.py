@@ -221,16 +221,16 @@ def test_openai_adapter_refuses_incomplete_output(
 
 def test_offline_evaluator_records_aggregate_statuses_and_case_ids() -> None:
     report = evaluate_cases(ConversationalSearchService(FixtureProvider()), CASES)
-    assert report["passed"] == 20
+    assert report["passed"] == 24
     assert report["by_expected_status"] == {
-        "ready": {"passed": 8, "total": 8},
+        "ready": {"passed": 12, "total": 12},
         "clarify": {"passed": 3, "total": 3},
         "unsupported": {"passed": 9, "total": 9},
     }
     changed = [*CASES]
     changed[0] = {**changed[0], "filters": {"max_price": 1}}
     failed = evaluate_cases(ConversationalSearchService(FixtureProvider()), changed)
-    assert failed["passed"] == 19
+    assert failed["passed"] == 23
     assert failed["failures"] == [{"id": "price_beds_zip", "expected_status": "ready"}]
 
 
@@ -275,3 +275,15 @@ def test_lot_size_is_refused_before_any_provider_call() -> None:
 def test_property_type_outside_the_catalog_fails_schema_validation() -> None:
     with pytest.raises(ValueError):
         _filters({"property_type": "mobile_home"})
+
+
+def test_interface_example_searches_are_supported_regression_cases() -> None:
+    source = (
+        Path(__file__).parents[1] / "frontend/src/ConversationalSearch.tsx"
+    ).read_text(encoding="utf-8")
+    block = source.split("const EXAMPLES = [", 1)[1].split("] as const", 1)[0]
+    examples = [line.strip().strip(",").strip("'") for line in block.splitlines()]
+    examples = [example for example in examples if example]
+    ready = {case["query"] for case in CASES if case["status"] == "ready"}
+    assert len(examples) == 4
+    assert set(examples) <= ready

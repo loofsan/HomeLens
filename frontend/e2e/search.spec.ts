@@ -310,6 +310,36 @@ test('home type, size, and year built filter manually and from AI search', async
   await expect(page.getByLabel('Built through')).toHaveValue('')
 })
 
+test('example searches preview filters and area links open externally', async ({ page }) => {
+  await mockBackend(page)
+  const interpreted: string[] = []
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/search/interpret')) interpreted.push((request.postDataJSON() as { query: string }).query)
+  })
+  await page.goto('/')
+  const examples = page.getByRole('group', { name: 'Example searches' })
+  await expect(examples.getByRole('button')).toHaveCount(4)
+  await examples.getByRole('button', { name: '3+ beds under $400k in 27703' }).click()
+  await expect(page.getByLabel('Describe your search')).toHaveValue('3+ beds under $400k in 27703')
+  await expect(page.getByText('Up to $400,000 · 3+ beds · ZIP 27703')).toBeVisible()
+  await expect(page.getByText('3 recorded sales')).toBeVisible()
+  expect(interpreted).toEqual(['3+ beds under $400k in 27703'])
+  await expect(examples).toHaveCount(0)
+  await page.getByLabel('Describe your search').fill('')
+  await expect(examples.getByRole('button')).toHaveCount(4)
+
+  await page.getByRole('button', { name: /View 1 Main St/ }).click()
+  const explore = page.getByRole('region', { name: 'Explore Durham' })
+  await explore.scrollIntoViewIfNeeded()
+  await expect(explore.getByRole('link')).toHaveCount(5)
+  for (const link of await explore.getByRole('link').all()) {
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', /noopener/)
+    await expect(link).toHaveAttribute('href', /^https:\/\//)
+  }
+  await expect(explore.getByRole('link', { name: 'Events in Durham' })).toHaveAttribute('href', 'https://www.discoverdurham.com/events/')
+})
+
 test('synthetic catalog stays visibly fictional and skips property providers', async ({ page }, testInfo) => {
   await mockBackend(page, { synthetic: true })
   const providerRequests: string[] = []
@@ -332,6 +362,7 @@ test('synthetic catalog stays visibly fictional and skips property providers', a
   await expect(page.getByRole('region', { name: 'Sample record note' })).toContainText('not a recorded transaction')
   await expect(page.getByText(/No transaction occurred/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Estimate' })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Explore Durham' })).toHaveCount(0)
   expect(providerRequests).toEqual([])
   await page.screenshot({ path: testInfo.outputPath('synthetic-detail.png') })
   await page.getByRole('button', { name: 'Close sale details' }).click()
@@ -513,7 +544,7 @@ test('property context loads on demand with partial and sourced states', async (
   await expect(page.getByText('Duke Park')).toBeVisible()
   await expect(page.getByText('No coverage was found near this location.')).toBeVisible()
   await expect(page.getByText('The provider timed out.')).toBeVisible()
-  await expect(page.getByText('City of Durham')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Nearby places' }).getByText('City of Durham')).toBeVisible()
   await page.getByRole('button', { name: 'Refresh' }).click()
   await expect(page.getByText('Nearby imagery is not a verified photo of this home.')).toBeVisible()
   await expect(page.getByText('This roof is not verified as belonging to the recorded property. No financial estimate is implied.')).toBeVisible()
