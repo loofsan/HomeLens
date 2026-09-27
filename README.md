@@ -1,15 +1,52 @@
 # HomeLens
 
-HomeLens is a rebuild of the Google Realtor housing research prototype. The
-original combined home search, neighborhood context, price forecasts, solar
-analysis, and AI-assisted questions. The current application searches a local
-catalog of historical Durham County sales; it does not show active listings.
+HomeLens helps someone who is moving to Durham, North Carolina get a feel for a home and its neighborhood before they visit. You search past home sales on a map, open one, and see what the area around it is like: nearby places, street imagery, solar potential, who lives in the ZIP code, reported crime by police beat, how values in that ZIP have moved since the sale, and an experimental price estimate.
 
-## Quick local demo
+It runs on your own computer. It is a portfolio and learning project, not a public website, and it shows **past sales, not homes currently for sale**.
 
-This repository is for local testing and demos, not public deployment. No raw
-dataset, model artifact, or API key is needed to try search, filters, map, and
-details with 24 fictional examples. From the repository root in PowerShell:
+- [What it does](#what-it-does)
+- [Why I built it](#why-i-built-it)
+- [Try it on your computer](#try-it-on-your-computer)
+- [Three hard problems and how I solved them](#three-hard-problems-and-how-i-solved-them)
+- [More documents](#more-documents)
+
+## What it does
+
+| Feature | What you see |
+| --- | --- |
+| **Map and list search** | Every recorded sale on a map and in a list, kept in sync. Filter by price, beds, baths, ZIP, home type, size, and year built, or search just the area you are looking at. |
+| **Search by description** | Type "townhouses built in 2010 or later under $350k". AI turns it into filters you can check before applying. If the request is vague it asks a question; if it asks for something the data can't answer (like "safe neighborhood"), it says so instead of guessing. |
+| **Price estimate** | A machine learning estimate of what the home would have sold for, with the typical error shown next to it. Only offered for the areas and home types the model was tested on. |
+| **Value since sale** | The sale price moved along the ZIP code's home value index, shown as a chart or a table. |
+| **Area demographics** | Population, income, age, and race and ethnicity for the ZIP code, from the Census, with margins of error. |
+| **Crime by police beat** | A shaded map layer of reported violent or property offenses per year, by Durham police beat. |
+| **Nearby places** | Schools, parks, groceries, and more within a distance you choose, or type what you want ("coffee"). |
+| **Street View and solar** | A street image turned to face the home, and the roof's solar potential with estimated savings and payback. |
+| **Explore Durham** | Links to local events, parks, libraries, and the school lookup. |
+
+Every section says where its numbers come from and what they can't tell you. When something isn't available, the app says so instead of filling the gap.
+
+## Why I built it
+
+HomeLens started as **Google Realtor**, a team project built in 60 hours for Google's "Data for Good" challenge during the 2025 Sprinternship. We wanted to help three kinds of people:
+
+- **Families relocating:** "Are there good schools and parks nearby? Is it a safe place to raise kids?"
+- **Out-of-state buyers:** "I can't fly out to see the house. I want to know what the area is actually like."
+- **First-time buyers:** "I don't know anything about buying a house. I need something that guides me."
+
+The prototype worked as a demo, but a 60-hour build leaves shortcuts: photos that weren't the actual homes, a crime heatmap built by geocoding arrest addresses, and price forecasts that were never tested against what actually happened.
+
+I rebuilt it on my own to do it properly. Every number is traceable to a source, models are tested on data they never saw, and the app is honest about what it doesn't know.
+
+## Try it on your computer
+
+You need **Python 3.12 or newer**, **Node.js 22 or newer**, and **pnpm**. The steps below are for Windows PowerShell. On macOS or Linux, use `.venv/bin/python` instead of `.venv\Scripts\python`.
+
+### Option 1: the quick demo (5 minutes, no data or keys)
+
+This uses 24 made-up homes so you can click around right away.
+
+**1. Start the server.** Open PowerShell in the project folder:
 
 ```powershell
 py -3.13 -m venv .venv
@@ -19,173 +56,9 @@ $env:PROPERTY_CATALOG_PATH = "data/processed/demo_catalog.sqlite3"
 .venv\Scripts\python -m flask --app homelens run
 ```
 
-Open a second PowerShell window at the repository root, then:
+The `demo_catalog` line creates the fake homes and only needs to run once. It refuses to overwrite them, so skip it next time.
 
-```powershell
-cd frontend
-pnpm install --frozen-lockfile
-pnpm dev
-```
-
-Open the URL printed by Vite, normally `http://127.0.0.1:5173`. Use Python
-3.12 or newer if 3.13 is unavailable. CI uses Node.js 24 and pnpm 11; this
-local demo was also verified with Node.js 22.14 and pnpm 9.12. Map tiles need a
-network connection. The generated SQLite file is ignored by Git and is separate
-from `data/processed/property_catalog.sqlite3`. Generate it only once: the
-command refuses to replace an existing file, so skip that line when restarting
-the demo. All demo records and map points are illustrative, not real
-homes or transactions. Valuation and Google property context are disabled for
-them, even if credentials or a model artifact are configured. AI search remains
-optional and needs each tester's own local `OPENAI_API_KEY`; manual filters work
-without it. Use the separate historical catalog and offline model workflow below
-only with data you are permitted to use. Do not commit datasets, artifacts, or
-secrets.
-
-If ports 5000 or 5173 are occupied, use free ports instead. For example, start
-Flask from the repository root with the same `PROPERTY_CATALOG_PATH` setting:
-
-```powershell
-.venv\Scripts\python -m flask --app homelens run --port 5004
-```
-
-Then start the frontend from `frontend` in the second PowerShell window:
-
-```powershell
-$env:VITE_API_TARGET = "http://127.0.0.1:5004"
-pnpm exec vite --host 127.0.0.1 --port 5180 --strictPort
-```
-
-Open `http://127.0.0.1:5180`. Keep `VITE_API_TARGET` aligned with the Flask
-port you choose.
-
-## Architecture
-
-The API is a Flask application factory in `backend/homelens`. Each feature will
-follow this dependency direction:
-
-```text
-HTTP route -> application service -> domain rules -> repository/provider port
-                                                  -> database or external adapter
-```
-
-Routes validate requests and format responses. Services coordinate use cases.
-Domain code owns housing rules and calculations. Adapters isolate MariaDB,
-Google APIs, Census data, model artifacts, and other providers so a provider
-failure does not become an implicit business rule. No provider or database is
-required to start the current application.
-
-Data and models have a separate path: ingest -> validate -> prepare features ->
-train -> evaluate -> version artifact -> load for inference. Training will run
-offline, never in an HTTP request. Evaluations will use temporal and geographic
-checks where the data permits and report errors by property and location slice.
-
-An LLM may interpret a search request or draft a description, but its output
-will be schema-validated before deterministic filters, calculations, or provider
-calls. It will not author SQL or decide access permissions. External calls will
-have explicit timeouts and bounded retries when those integrations are added.
-
-The first supported geography will be Durham County, matching the prototype's
-data. Each capability has a clear boundary:
-
-| Capability | Planned component | Required input |
-| --- | --- | --- |
-| Property search | Search service and property repository | Licensed property records |
-| Crime and demographics | Neighborhood service and source adapters | Durham crime data and Census API |
-| Nearby places, Street View, solar | Google API adapters | Property coordinates and API credentials |
-| Value estimates | Offline training and inference service | Historical sales and a versioned model |
-| Chat search and descriptions | Structured AI workflow | Validated property and neighborhood facts |
-
-An unavailable provider will produce an explicit partial or error response for
-its capability; it will not silently substitute invented data. Database schema,
-API response shapes, and provider contracts will be specified in their feature
-issues before implementation.
-
-## Current API
-
-`GET /api/health` returns HTTP 200 and `{"status":"ok"}`. This is a process
-liveness check, not a database or provider readiness check.
-
-## Historical property catalog
-
-The supplied `data/raw/redfin_data.csv` is a sold-home export, not a feed of
-currently available homes. The offline import creates a local SQLite catalog:
-
-```powershell
-.venv\Scripts\python -m homelens.data.property_catalog
-```
-
-The ignored `data/processed/property_catalog.sqlite3` holds validated historical
-sales inside the supplied Durham County boundary. The ignored
-`data/processed/property_catalog_audit.json` records source hashes, row
-exclusions, date range, and schema version without publishing addresses. Each
-record has a stable ID, sale date and price, home attributes, address, ZIP,
-coordinates, optional validated Redfin URL, and a fixed `historical_sale` kind.
-Re-running the import replaces the local snapshot transactionally. This catalog
-is separate from the eight-ZIP modeling cohort; it is not an active-listing
-service or a deployable data feed.
-For an isolated local worktree, `PROPERTY_CATALOG_PATH` may point Flask to an
-existing imported catalog outside that worktree; keep the catalog out of Git.
-
-After importing, `GET /api/properties` searches the local historical sales.
-Optional filters are `min_price`, `max_price`, `min_beds`, `min_baths`, `zip`,
-`property_type` (`single_family`, `townhouse`, or `condo`), `min_sqft`,
-`max_sqft`, `min_year_built`, `max_year_built`, and a complete `south`,
-`west`, `north`, `east` map rectangle. Inverted ranges return 400. `page` starts at 1;
-`page_size` defaults to 20 and is capped at 100. Results are ordered by sale
-date (newest first) and stable record ID. `GET /api/properties/<id>` returns a
-single sale or 404. Both successful responses include source vintage and
-`active_listings: false`; each property has `record_kind: historical_sale` and a
-sale date. Invalid filters return 400 with a structured field error. If the
-local catalog is missing or incompatible, property routes return 503 without
-affecting `/api/health`.
-
-## Conversational search
-
-`POST /api/search/interpret` accepts a JSON `query` and optionally a previous
-`question` with its `answer`. It returns a validated filter preview, a
-clarifying question, or an unsupported-condition message. Only sold price,
-minimum beds/baths, ZIP, home type, interior square feet, and year built can be
-inferred; lot size, home style, and location-based conditions are reported as
-unsupported. The route does not run SQL, search
-the catalog, or generate property facts; applying a preview calls the existing
-deterministic property search. Manual filters remain available without AI.
-Property detail descriptions are assembled from the historical catalog record
-only and carry the catalog source in the same response. They are not
-model-authored or claims about current availability.
-
-To enable the optional OpenAI adapter for a local demo, set `OPENAI_API_KEY` in
-the backend process environment before starting Flask. `OPENAI_SEARCH_MODEL`
-defaults to `gpt-4o-mini`. Keep keys out of Git; the browser never receives
-the key. Requests use schema-constrained responses with bounded timeouts and
-`store=false` as described in the [official OpenAI documentation](https://developers.openai.com/api/docs/guides/structured-outputs).
-Without a key, supported requests return 503 and manual search still works.
-
-The executed `notebooks/search_intent_contract.ipynb` defines the supported,
-ambiguous, and adversarial regression set. With a local key, run the offline
-provider evaluation before relying on AI interpretation:
-
-```powershell
-.venv\Scripts\python -m homelens.services.search_evaluation
-```
-
-The ignored report at `data/processed/search_intent_evaluation.json` contains
-aggregate pass counts and failed case IDs only. No live provider evaluation is
-claimed until this command is run with a configured key. This repository is
-intended for local testing and demos, not public deployment.
-
-## Historical sale interface
-
-The React/Vite interface searches the local catalog with price, beds, baths,
-and ZIP filters, plus home type, square feet, and year built under "More
-filters". Four example searches next to the AI search box run the same
-preview flow; each is a ready case in the search-intent regression set. Sale
-details end with curated external links to Durham community, events, parks,
-library, and school-assignment pages (hidden for synthetic records). The page
-synchronizes the result list with a map using supplied
-coordinates, supports searching the visible map area, and shows responsive
-sale details. It labels every result as historical and does not present these
-records as available homes. Start the Flask API as described below, then in a
-second PowerShell window run:
+**2. Start the website.** Open a second PowerShell window in the project folder:
 
 ```powershell
 cd frontend
@@ -193,386 +66,118 @@ pnpm install
 pnpm dev
 ```
 
-Open the URL printed by Vite. CI uses Node.js 24 and pnpm 11; the local demo
-also ran with Node.js 22.14 and pnpm 9.12. The development server proxies
-`/api` to Flask on port 5000 by default. Map tiles default to
-[OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/) with
-visible attribution; set `VITE_MAP_TILE_URL` to a compatible tile URL if using
-another provider for a local demo and follow its usage terms.
+**3. Open the link** it prints, usually http://127.0.0.1:5173.
 
-For the frontend build and browser tests:
+In the demo, the price estimate, Google features, and neighborhood data are turned off, because the homes aren't real.
 
-```powershell
-cd frontend
-pnpm run build
-pnpm exec playwright install chromium
-pnpm run test:e2e
-```
+### Option 2: with real Durham data
 
-The E2E tests stub API and tile responses, so they do not require the private
-catalog or contact the public tile server. `e2e/accessibility.spec.ts` runs axe-core
-WCAG 2.1 A/AA checks on the search, filter, AI preview, sale detail, and crime
-layer views at desktop and mobile sizes, and checks a keyboard-only search,
-open, and Escape-to-close flow. Map movement respects reduced-motion settings. Frontend checks run in GitHub
-Actions on pull requests.
+The real data isn't in this repository: some of it can't be redistributed, and some of it is large. Put these files in `data\raw`:
 
-## Optional Google context
+| File | What it is | Where it comes from |
+| --- | --- | --- |
+| `redfin_data.csv` | Sold homes in Durham County, 2020 to 2025 | A Redfin "sold homes" export |
+| `durham_county_boundary.geojson` | The county outline | Durham open data, County Boundary layer |
+| `DPD_Crime_(table_only).csv` | Reported offenses | Durham open data, DPD Crime table |
+| `durham_police_beats.geojson` | Police beat shapes | Durham open data, Police Beats layer |
+| `ACSDP5Y2024.DP05-*.csv`, `ACSDP5Y2024.DP03-*.csv` | ZIP code demographics and income | data.census.gov, ACS 5-Year Data Profiles DP05 and DP03 for the Durham ZIP codes |
+| `zipcode_saleprice.csv` | Monthly home value index by ZIP | A Zillow Research ZIP download |
 
-Sale details can request nearby places, outdoor Street View imagery, and a
-closest-building solar estimate on demand. The backend uses the recorded sale
-coordinate and returns independent `available`, `unavailable`, or `error`
-states from `GET /api/properties/<id>/context`. A Street View image is served
-through `GET /api/properties/<id>/street-view/image`, so the API key never
-appears in browser requests. The image uses the nearest outdoor panorama
-within 50 m and is turned toward the recorded sale coordinate, using the
-bearing from the panorama location reported by the free metadata request. Neither imagery nor the closest detected roof is
-verified as belonging to the recorded home. These provider results are not
-overlaid on the OpenStreetMap sale map.
-
-Nearby places default to everyday amenities (supermarkets, parks, schools,
-pharmacies) within 1,500 m. `GET /api/properties/<id>/context/nearby` refreshes
-only that section with an optional `category` (`everyday`, `schools`,
-`childcare`, `parks`, `grocery`, `restaurants`, `bars`, `shopping`, `health`,
-`libraries`, `fitness`, `transit`) and `radius_m` (800, 1500, 3000, or 5000).
-Each category maps to a fixed list of Places API (New) types; other values
-return 400 without a provider call.
-
-Sale details also accept a short free-text place request ("coffee",
-"playground"). `POST /api/nearby/interpret` maps it to one of those categories
-with fixed keywords first; only when no keyword matches, and `OPENAI_API_KEY`
-is set, it asks the model to choose a category from the same allow-list or
-none. Requests matching several categories return the options instead of a
-guess, and unmatched requests say so. The result only selects a category; the
-places come from the same Places request as the chips.
-
-Solar reports the closest building's modeled panel count, capacity, usable
-roof area, sunshine hours, and grid carbon factor. When the Solar API returns
-financial analyses, sale details offer one cash-purchase scenario per modeled
-monthly bill (installed cost, incentives, out-of-pocket cost, first-year and
-lifetime savings, and payback). These are Google's estimates from its own
-utility rates, costs, and incentives, shown in USD only; they are not quotes.
-
-For live results, enable billing and the Places API (New), Street View Static
-API, and Solar API in a Google Maps
-Platform project. Set `GOOGLE_MAPS_API_KEY` in the Flask server environment;
-do not commit the key. The server makes bounded requests with a three-second
-timeout per provider and does not persist provider content. Without a key,
-each context section reports `not_configured` and catalog search still works.
-The frontend E2E suite uses provider fakes; live provider behavior remains
-unverified until credentials are configured.
-
-Google Places content is displayed only in a separate, attributed list. For a
-local demo with Places enabled, review the current [Google Maps attribution and Places policies](https://developers.google.com/maps/documentation/places/web-service/policies).
-
-## Local development
-
-Python 3.12 or newer is required. From the repository root in PowerShell:
+Then prepare everything once:
 
 ```powershell
-py -3.13 -m venv .venv
-.venv\Scripts\python -m pip install -e ".[dev]"
-.venv\Scripts\python -m flask --app homelens run
-```
-
-Visit `http://127.0.0.1:5000/api/health`. Use the Python version available on
-your machine if it is not 3.13. The Flask command above is for local development.
-
-Run the quality checks with:
-
-```powershell
-.venv\Scripts\python -m ruff format --check .
-.venv\Scripts\python -m ruff check .
-.venv\Scripts\python -m mypy backend
-.venv\Scripts\python -m pytest
-```
-
-The same checks run in GitHub Actions for pull requests on Python 3.12 and 3.13.
-
-To reproduce the local data inventory and exploratory profile:
-
-```powershell
-.venv\Scripts\python -m homelens.data.inventory
-.venv\Scripts\python -m homelens.data.eda
-```
-
-To audit the local crime and ACS exports without publishing incident records:
-
-```powershell
-.venv\Scripts\python -m homelens.data.neighborhood_inventory
-```
-
-The ignored `data/processed/neighborhood_inventory.json` records source hashes,
-schema and date quality, duplicate-export checks, geometry coverage, and ACS
-geographies. The supplied crime GeoJSON is a non-spatial copy of the crime
-table; it cannot be joined to homes or ZIPs. The original DP05 export contains
-United States figures; a separate Durham County export is also available.
-Neither source currently supports neighborhood-level facts. Additional 2023
-DP05 CSV exports can be placed alongside the original file; the audit checks
-every matching export.
-
-To prepare a county-only context summary from the Durham 2023 ACS 1-year DP05
-export:
-
-```powershell
-.venv\Scripts\python -m homelens.data.acs_county
-```
-
-The ignored `data/processed/acs_county_context.json` contains selected
-population, age, and housing-unit estimates with margins of error and explicit
-unavailable values. It is Durham County context only, not a ZIP-level measure
-or a property/model feature.
-
-To prepare ZIP-area demographics for sale details, download two CSV tables
-from data.census.gov for the ZIP Code Tabulation Areas (ZCTAs) in the catalog:
-the ACS 5-Year Data Profiles DP05 (demographics) and DP03 (economics) for the
-same year. Save them in `data/raw` with their exported names
-(`ACSDP5Y<year>.DP05-*.csv` and `ACSDP5Y<year>.DP03-*.csv`) and run:
-
-```powershell
+.venv\Scripts\python -m homelens.data.property_catalog
+.venv\Scripts\python -m homelens.data.crime_beats
 .venv\Scripts\python -m homelens.data.acs_zcta
-```
-
-The ignored `data/processed/acs_zcta_profiles.json` contains, per ZCTA,
-population, median age, under-18 and 65+ shares, median household income, and
-mutually exclusive race and Hispanic-origin shares, each with its 90% margin of
-error and source hashes. Suppressed values stay unavailable; top- and
-bottom-coded values keep their marker. `GET /api/properties/<id>/demographics`
-returns the profile for the sale's recorded ZIP, labeled as a ZCTA estimate for
-the whole area; it returns 503 until the file is prepared (set
-`ACS_ZCTA_PROFILES_PATH` to use another location). These figures are context
-only and are never model features. With the 2020-2024 exports for the 13
-catalog ZCTAs, every profile parses; 27709 (Research Triangle Park) reports no
-resident population, so its sales show demographics as unavailable.
-
-To audit crime `BEAT` codes against the [City of Durham Police Beats layer](https://webgis.durhamnc.gov/server/rest/services/PublicServices/Public_Safety/MapServer/8),
-place its WGS84 GeoJSON export at `data/raw/durham_police_beats.geojson` and run:
-
-```powershell
-.venv\Scripts\python -m homelens.data.police_beats
-```
-
-The ignored `data/processed/police_beats_audit.json` reports polygon validity,
-split beat codes, overlaps, and aggregate crime-code coverage. In the supplied
-exports, 128,098 of 128,560 crime rows have a matching beat polygon; 454 have
-no beat and 8 use `SSA`. Sixteen cross-beat polygon pairs overlap, each by less
-than 0.000001% of the smaller feature. The [layer metadata](https://webgis.durhamnc.gov/server/rest/services/PublicServices/Public_Safety/MapServer/8/metadata)
-was modified in 2026 but gives no historical effective dates. This audit does
-not establish incident locations, historical beat boundaries, or property/ZIP-
-level crime facts. No incident records are written.
-
-The supplied `data/raw/zipcode_saleprice.csv` has the layout of a Zillow
-Research ZIP download with smooth monthly levels, consistent with a Zillow Home
-Value Index (ZHVI) series of unconfirmed variant; it is not observed median
-sale prices. The executed `notebooks/zip_value_outlook.ipynb` backtests
-five-year ZIP forecasts (no change, linear drifts, a damped trend, and ARIMA,
-as in the prototype) on rolling January origins. No method beat the no-change
-baseline at every 1-5 year horizon on both development (2006-2015) and
-holdout (2016-2020) origins, so no forward projection is served. Install the
-notebook extras to rerun it (`statsmodels` is used there only).
-
-To prepare the index for sale details, run:
-
-```powershell
 .venv\Scripts\python -m homelens.data.zip_index
 ```
 
-`GET /api/properties/<id>/value-trend` moves the recorded sale price along its
-ZIP's index from the sale month to the latest index month (April 2025 in the
-supplied file) and returns the monthly points, with `forecast: null`. Sales in
-ZIPs outside the index or after its last month are reported as unavailable.
-The detail view shows this as "Value since sale" with a chart/table toggle and
-labels it an index adjustment, not an appraisal or current market value. The
-endpoint returns 503 until the file is prepared (set `ZIP_VALUE_INDEX_PATH` to
-use another location).
+Start the server in a fresh PowerShell window without the `PROPERTY_CATALOG_PATH` line, then start the website the same way as in Option 1. Any file you skip only turns off the feature that needs it; everything else keeps working. To also train the price estimate, follow the steps in the [design document](docs/DESIGN.md#appendix-rebuild-the-data-and-model).
 
-To prepare the map's crime layer from the same crime table and police-beat
-polygons, run:
+### Optional: turn on the AI and Google features
+
+Get your own keys and set them in the same PowerShell window before starting the server. Never put them in the code.
 
 ```powershell
-.venv\Scripts\python -m homelens.data.crime_beats
+$env:OPENAI_API_KEY = "your key"        # search by description
+$env:GOOGLE_MAPS_API_KEY = "your key"   # nearby places, Street View, solar
 ```
 
-The ignored `data/processed/crime_beats.geojson` holds simplified beat
-polygons with offense-record counts per calendar year in two categories that
-follow the FBI definitions expressed as NIBRS codes: violent (murder and
-nonnegligent manslaughter, rape, robbery, aggravated assault) and property
-(burglary, larceny-theft, motor vehicle theft, arson). It contains no
-addresses, incident identifiers, or incident rows, and records how many rows
-were excluded for a missing, unmatched, or undated beat. With the supplied
-exports, 51,951 of 51,966 in-scope records are counted; 12 lack a beat and 3
-use `SSA`, so beat 299 has no linked reports. A year is complete only when the
-export covers January 1 through December 31.
+The Google key needs the Places API (New), Street View Static API, and Solar API enabled, with billing and a spending limit set. Without keys, those sections say they aren't set up and everything else works.
 
-`GET /api/crime/beats?year=<year>&category=violent|property` returns one year
-and category as GeoJSON with counts and records per km² (default: latest
-complete year, violent). The map's "Crime by beat" toggle shows it as a shaded
-layer beneath the sale points with a legend and scope notes. The public table
-covers the city police jurisdiction only and under-represents some offenses
-(for example, it has very few homicide records), so the layer shows reported
-records by beat, not complete crime statistics or risk at a specific home.
-Beat boundaries are the current layer. The endpoint returns 503 until the file
-is prepared (set `CRIME_BEATS_PATH` to use another location).
+### If something doesn't start
 
-To prepare the first residential modeling cohort and its audit:
+- **Port already in use:** run the server with `--port 5004`. Then, before `pnpm dev`, run `$env:VITE_API_TARGET = "http://127.0.0.1:5004"`.
+- **Blank map:** the map tiles come from OpenStreetMap and need an internet connection.
+- **Run the checks:** `.venv\Scripts\python -m pytest` for the server, and `pnpm run test:e2e` in `frontend` for the website.
 
-```powershell
-.venv\Scripts\python -m homelens.data.prepare
-```
+## Three hard problems and how I solved them
 
-These commands read the CSVs in `data/raw` and write ignored outputs to
-`data/processed`. The initial cohort uses three residential property types and
-eight selected ZIPs, with training sales before 2024, validation sales in 2024,
-and a partial-year 2025 test set. It is not a county-boundary validation. The
-ZIP-level price-history metric is unverified and is not joined to the cohort.
+These are the problems most likely to trip up anyone who builds a project like this on their own.
 
-To audit the selected ZIPs against the [Durham County Boundary layer](https://webgis.durhamnc.gov/server/rest/services/PublicServices/Administrative/MapServer/2),
-query its geometry as WGS84 GeoJSON, place the resulting polygon at
-`data/raw/durham_county_boundary.geojson`, and run:
+### 1. The crime "map" file had no locations in it
 
-```powershell
-.venv\Scripts\python -m homelens.data.geography
-```
+**Situation.** The prototype's most eye-catching feature was a crime heatmap. Durham publishes its police data as a 57 MB file named `City_Crime_(External_Use).geojson`, which looks like map data. When I checked it, all 128,560 records had **no coordinates at all**. The only location was a block address like "3700 MAYFAIR ST". The prototype had geocoded those addresses one by one, which puts dots where no specific incident happened and republishes addresses of real events.
 
-The command writes an aggregate, ignored report to
-`data/processed/geography_audit.json`; it does not alter the prepared cohort.
-For the supplied sources, 18,117 of 18,400 deduplicated historical sales with
-usable coordinates are inside the boundary. The eight-ZIP rule includes 276
-outside-county sales and excludes 55 inside-county sales. This comparison covers
-historical sales broadly, not just the prepared residential cohort. The
-original cohort remains ZIP-based; its estimates must not be presented as
-county-wide.
+**Task.** Show crime around a home in a way that is accurate, doesn't invent locations, and doesn't publish incident records.
 
-To evaluate the first offline valuation baselines after preparation:
+**Action.**
+- I audited every column and found a police `BEAT` code on each record.
+- I downloaded the city's police beat boundaries and checked the match: 128,098 of 128,560 records (99.6%) pointed to a real beat.
+- I counted offenses per beat per year, using the FBI's standard definitions of violent crime (murder, rape, robbery, aggravated assault) and property crime (burglary, theft, vehicle theft, arson).
+- I used the report date for the year, because the file's own year column was `0` on 29,831 records (23%).
+- I wrote down the gaps instead of hiding them:
+  - The public table has only 3 homicide records in over four years, far too few.
+  - It covers the city police area only.
+  - One beat's reports use a different code (`SSA`), so that beat shows "no linked reports" instead of a misleading zero.
 
-```powershell
-.venv\Scripts\python -m homelens.modeling.baseline
-```
+**Result.** The crime layer is a shaded map of 36 beats built from 51,951 of 51,966 relevant records. It is a 180 KB file with no addresses or incident IDs, and it includes a legend and notes explaining what the counts can and can't tell you.
 
-The ignored report at `data/processed/baseline_report.json` compares a training
-median with a fixed tabular model on the temporal validation and test splits.
-It reports errors by ZIP and property type. The results apply to the selected
-study ZIPs, not to a verified county-wide population.
-The report also includes training-defined price bands, aggregate ZIP/property
-type intersections, and the share of error carried by the largest residuals.
-Intersections below 30 sales report counts only. Positive signed error means
-overprediction; negative signed error means underprediction. The 2025 test
-split is descriptive and must not be used to tune a model.
+### 2. A price model that looked great but would have misled people
 
-Model experiments begin in an executed notebook before the selected procedure
-is moved to tested Python modules. Install the notebook tools with
-`.venv\Scripts\python -m pip install -e ".[dev,notebook]"`, then open
-`notebooks/high_price_validation.ipynb` from the repository root after preparing
-the cohort. Its saved outputs contain validation aggregates only; the 2025 test
-split is excluded from the notebook.
+**Situation.** The sales data is a Redfin export of 23,545 rows. It is easy to get an impressive accuracy number from data like this and ship it:
+- 1,416 rows were exact duplicates, and 3,728 had no usable sale date.
+- It includes a "$ per square foot" column, which is calculated from the price itself. Using it to predict price is cheating.
+- A random train/test split would let the model learn from 2024 sales and then be "tested" on 2023.
+- 276 sales carried a Durham ZIP code but were actually outside the county.
 
-To reproduce the fixed loss comparison and final held-out evaluation:
+**Task.** Build a price estimate whose stated error is the error a real user would see.
 
-```powershell
-.venv\Scripts\python -m homelens.modeling.loss_comparison
-```
+**Action.**
+- **Cleaning:** removed duplicates and dropped the price-derived column. I kept only homes inside the actual county boundary, not just the right ZIP codes.
+- **Splitting by time:** trained on May 2020 to 2023, tuned on 2024, and kept January to May 2025 locked away for one final test.
+- **Baseline first:** started with "predict the typical training price" so the model had something real to beat.
+- **Looking past the average:** broke errors down by ZIP, home type, and price range. The most expensive 14% of homes caused **45% of all the error** and 85% of the squared error.
+- **Rules before results:** switched the model's training objective to one suited to prices (Poisson), but only under a rule I wrote first: it had to cut high-price error by at least 10% without raising overall error more than 5%. It cut high-price error by 15%.
 
-The ignored `data/processed/loss_comparison.json` records the validation-only
-selection rule, both validation evaluations, the final 2025 comparison, and a
-temporal interval coverage check. The simple global interval undercovers
-high-price validation sales and is not approved for inference. Because 2024
-validation also selected the model, this interval check is diagnostic rather
-than an independent coverage guarantee. This workflow does not produce a
-deployable model artifact.
+**Result.**
+- On the locked 2025 sales, the model's typical miss is **$81,626**. The baseline misses by $157,216 on the same period.
+- The model still tends to guess about $57,000 low, and the app says so.
+- I built price ranges but **didn't ship them**: in testing, a range meant to cover 90% of sales covered only 49% of expensive homes.
+- The estimate is only offered for the ZIP codes, home types, and date range the model was tested on.
 
-The executed `notebooks/high_price_interval_calibration.ipynb` explores
-inference-time relative and predicted-price-segmented intervals for the fixed
-county-verified Poisson model. It calibrates on January-June 2024 and compares
-methods on July-December 2024, without using the 2025 split for selection. To
-reproduce the frozen 1% upper-tail / 9% lower-tail interval assessment after
-preparing the county-verified cohort and comparison, run:
+### 3. The five-year forecast that couldn't beat "prices stay flat"
 
-```powershell
-.venv\Scripts\python -m homelens.modeling.uncertainty
-```
+**Situation.** The prototype showed each home's value five years from now, using a forecasting method called ARIMA. The input file was named `zipcode_saleprice.csv`. Two problems appeared:
+- It wasn't sale prices. Its columns and its smooth month-to-month values match Zillow's typical-home-value index.
+- Nobody had checked whether the forecasts were right.
 
-The ignored `data/processed/uncertainty_report.json` contains aggregate
-coverage and width by training-price band, property type, and ZIP; slices below
-30 sales report counts only. On the fixed 2025 assessment, coverage was 90.8%
-overall, 89.5% above the training-price p90, and 83.0% at or below the training
-median. ZIP 27701 covered only 59.2% of 49 sales. The median interval width was
-$323,459. These results and prior use of 2024 for point-model selection do not
-support serving an uncertainty interval. The versioned artifact and API remain
-point-estimate-only.
+**Task.** Decide, with evidence, whether a five-year forecast deserves to be shown to someone making a big financial decision.
 
-The executed `notebooks/interval_slice_diagnostics.ipynb` follows up with
-inference-available predicted-price bands and ZIP grouping. It compares support,
-coverage, and width using only the two halves of 2024. Reproduce its ignored
-aggregate report after preparing the county-verified cohort and comparison:
+**Action.**
+- **Relabeled the source:** called the data what it is instead of what the filename says.
+- **Backtested:** pretended to stand at every January from 2006 to 2020 and forecast 1 to 5 years ahead. I compared seven methods, including ARIMA, against simply assuming prices stay flat.
+- **Set a strict rule:** a forecast would only be shown if one method beat "prices stay flat" at every horizon, both in the period with the 2008 crash and in the later period.
 
-```powershell
-.venv\Scripts\python -m homelens.modeling.interval_slice_diagnostics
-```
+**Result.**
+- **No method passed.** In the period with the 2008 crash, "prices stay flat" was the most accurate. Trend methods only looked good in the pandemic run-up, because prices kept rising.
+- Five-year misses ranged from 12% to 38%.
+- So HomeLens shows no five-year forecast. Instead, it shows how the ZIP's values actually moved since the sale, labeled as an index adjustment, not an appraisal.
 
-`data/processed/interval_slice_diagnostics.json` records group fallbacks and
-small-slice suppression, not an inference artifact. None of the candidates is
-approved for serving. The previously inspected 2025 outcomes cannot provide a
-fresh final test for a new method; that will require a later, untouched cohort.
+## More documents
 
-The executed `notebooks/county_cohort_validation.ipynb` compares the original
-ZIP cohort, a broad county cohort, and the eight study ZIPs restricted to the
-county polygon. It records aggregate exclusions, ZIP-label conflicts, split
-counts, and 2024 validation error slices. The 2025 split appears as counts only.
-The selected procedure keeps the study ZIPs inside Durham County; the 47
-inside-county sales with other ZIP labels remain diagnostic because only 8 are
-in 2024 validation.
+- [Design document](docs/DESIGN.md): the machine learning and AI decisions, including methods, baselines, evaluations, and how the AI search works.
+- [Findings](docs/FINDINGS.md): what the data and experiments showed.
+- `notebooks/`: the experiments behind each decision, with their results saved.
 
-To reproduce the selected county-verified cohort and its fixed-model comparison:
-
-```powershell
-.venv\Scripts\python -m homelens.data.prepare --county-verified-study-zips
-.venv\Scripts\python -m homelens.modeling.county_comparison
-```
-
-These commands write ignored county-cohort and comparison reports under
-`data/processed`. The comparison uses 2024 validation for the geography check
-and reports the selected model's 2025 test performance descriptively. The
-selected geography is a verified subset of Durham County, not the whole county.
-
-To export the fixed, train-only Poisson model after preparing the selected cohort
-and comparison, run:
-
-```powershell
-.venv\Scripts\python -m homelens.modeling.export
-```
-
-The ignored `models/valuation_v1` directory contains a joblib model and JSON
-metadata with source, boundary, cohort, and model checksums, library versions,
-supported feature ranges, and held-out aggregate errors. Export fails if the
-cohort or evaluation differs from the accepted comparison, and it will not
-overwrite an existing version directory. Only load artifacts generated in a
-trusted local workspace; joblib uses pickle. Restart the backend after export
-so the artifact is loaded once at startup. Missing or incompatible artifacts
-leave property search available but make valuation return HTTP 503.
-For a local worktree that reuses an existing ignored artifact, set
-`VALUATION_ARTIFACT_PATH` to its directory before starting Flask.
-
-`GET /api/properties/<id>/valuation` returns a point estimate for a supported
-historical sale in the selected eight ZIPs, inside the same county boundary and
-source catalog, with a sale date from May 21, 2020 through May 20, 2025 and features within
-the training ranges. Unsupported records return HTTP 422. The estimate is not
-a current market value or appraisal. The 2025 held-out MAE was $81,625.74 and
-mean signed error was -$56,951.48 (underprediction). No prediction interval is
-served while high-price calibration remains unresolved.
-
-## Next slices
-
-The historical catalog, search, map interface, provider context, versioned
-valuation, and conversational search are in place. Remaining work, in order:
-
-1. Point Street View toward the recorded home (#52), choose nearby categories
-   and radius (#53), and show solar financial analysis (#54).
-2. Filter by property type, square feet, and year built (#55), with example
-   prompts and community links (#56).
-3. Serve ZCTA demographics (#57) and reported crime by police beat (#58).
-4. Evaluate a five-year ZIP-level value outlook (#59): evaluated; no forecast
-   is served, and sale details show an index-adjusted value since sale.
-5. Validate live Google context (#41) and conversational search (#44) with
-   local credentials.
-
-High-price value ranges (#20) and current listings (#36) stay blocked until a
-fresh evaluation cohort and a licensed listing source exist.
+Data sources: Redfin (sold homes), City of Durham and Durham County open data (boundaries, police beats, crime), U.S. Census Bureau American Community Survey, Zillow Research (home value index), OpenStreetMap (map tiles), and, when enabled, Google Maps Platform and OpenAI.
