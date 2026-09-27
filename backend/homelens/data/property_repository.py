@@ -96,6 +96,11 @@ class SqlitePropertyRepository:
             ("beds", query.min_beds, ">="),
             ("baths", query.min_baths, ">="),
             ("zip", query.zip, "="),
+            ("property_type", query.property_type, "="),
+            ("square_feet", query.min_sqft, ">="),
+            ("square_feet", query.max_sqft, "<="),
+            ("year_built", query.min_year_built, ">="),
+            ("year_built", query.max_year_built, "<="),
         ):
             if value is not None:
                 clauses.append(f"{column} {operator} ?")

@@ -32,6 +32,11 @@ export async function searchSales(
   if (filters.minBeds) params.set('min_beds', filters.minBeds)
   if (filters.minBaths) params.set('min_baths', filters.minBaths)
   if (filters.zip) params.set('zip', filters.zip)
+  if (filters.propertyType) params.set('property_type', filters.propertyType)
+  if (filters.minSqft) params.set('min_sqft', filters.minSqft)
+  if (filters.maxSqft) params.set('max_sqft', filters.maxSqft)
+  if (filters.minYearBuilt) params.set('min_year_built', filters.minYearBuilt)
+  if (filters.maxYearBuilt) params.set('max_year_built', filters.maxYearBuilt)
   if (bounds) {
     for (const key of ['south', 'west', 'north', 'east'] as const) {
       params.set(key, String(bounds[key]))

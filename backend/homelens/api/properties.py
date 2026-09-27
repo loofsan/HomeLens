@@ -10,7 +10,12 @@ from typing import Any, cast
 from flask import Blueprint, Response, current_app, jsonify, request
 
 from homelens.data.property_repository import CatalogUnavailableError
-from homelens.domain.property import HistoricalSale, MapBounds, PropertyQuery
+from homelens.domain.property import (
+    PROPERTY_TYPE_SLUGS,
+    HistoricalSale,
+    MapBounds,
+    PropertyQuery,
+)
 from homelens.domain.property_summary import historical_sale_summary
 from homelens.services.property_search import PropertySearchService
 
@@ -22,6 +27,11 @@ QUERY_FIELDS = frozenset(
         "min_beds",
         "min_baths",
         "zip",
+        "property_type",
+        "min_sqft",
+        "max_sqft",
+        "min_year_built",
+        "max_year_built",
         "south",
         "west",
         "north",
@@ -68,6 +78,23 @@ def _integer(field: str, default: int, maximum: int) -> int:
     return number
 
 
+def _year(field: str) -> int | None:
+    raw = request.args.get(field)
+    if raw is None:
+        return None
+    if not re.fullmatch(r"\d{4}", raw):
+        raise QueryError(field, "must be a four-digit year")
+    year = int(raw)
+    if not 1700 <= year <= 2100:
+        raise QueryError(field, "is outside the allowed range")
+    return year
+
+
+def _ordered(low: float | None, high: float | None, field: str, low_field: str) -> None:
+    if low is not None and high is not None and low > high:
+        raise QueryError(field, f"must be at least {low_field}")
+
+
 def _query() -> PropertyQuery:
     for field in request.args:
         if field not in QUERY_FIELDS:
@@ -92,16 +119,34 @@ def _query() -> PropertyQuery:
             raise QueryError("bounds", "south must precede north and west precede east")
         bounds = MapBounds(south=south, west=west, north=north, east=east)
 
+    property_type = request.args.get("property_type")
+    if property_type is not None and property_type not in PROPERTY_TYPE_SLUGS:
+        raise QueryError(
+            "property_type", "must be one of " + ", ".join(PROPERTY_TYPE_SLUGS)
+        )
+
     min_price = _number("min_price", 0)
     max_price = _number("max_price", 0)
-    if min_price is not None and max_price is not None and min_price > max_price:
-        raise QueryError("max_price", "must be at least min_price")
+    _ordered(min_price, max_price, "max_price", "min_price")
+    min_sqft = _number("min_sqft", 0, 100_000)
+    max_sqft = _number("max_sqft", 0, 100_000)
+    _ordered(min_sqft, max_sqft, "max_sqft", "min_sqft")
+    min_year_built = _year("min_year_built")
+    max_year_built = _year("max_year_built")
+    _ordered(min_year_built, max_year_built, "max_year_built", "min_year_built")
     return PropertyQuery(
         min_price=min_price,
         max_price=max_price,
         min_beds=_number("min_beds", 0),
         min_baths=_number("min_baths", 0),
         zip=zip_code,
+        property_type=PROPERTY_TYPE_SLUGS[property_type]
+        if property_type is not None
+        else None,
+        min_sqft=min_sqft,
+        max_sqft=max_sqft,
+        min_year_built=min_year_built,
+        max_year_built=max_year_built,
         bounds=bounds,
         page=_integer("page", 1, 100_000),
         page_size=_integer("page_size", 20, 100),
