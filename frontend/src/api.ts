@@ -1,5 +1,7 @@
 import type {
+  ContextSection,
   DetailResponse,
+  NearbyPlace,
   MapBounds,
   PropertyContextResponse,
   SearchFilters,
@@ -55,6 +57,21 @@ export async function getPropertyContext(
 ): Promise<PropertyContextResponse> {
   return readResponse<PropertyContextResponse>(
     await fetch(`/api/properties/${encodeURIComponent(id)}/context`, { signal }),
+  )
+}
+
+export async function getNearbyPlaces(
+  id: string,
+  category: string,
+  radiusM: number,
+  signal: AbortSignal,
+): Promise<ContextSection<{ places: NearbyPlace[] }>> {
+  const params = new URLSearchParams({ category, radius_m: String(radiusM) })
+  return readResponse<ContextSection<{ places: NearbyPlace[] }>>(
+    await fetch(
+      `/api/properties/${encodeURIComponent(id)}/context/nearby?${params}`,
+      { signal },
+    ),
   )
 }
 

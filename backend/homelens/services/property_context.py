@@ -8,6 +8,7 @@ from typing import Any, Protocol
 from homelens.domain.property import HistoricalSale
 from homelens.domain.property_context import (
     ContextSection,
+    NearbyQuery,
     ProviderRequestError,
     section,
 )
@@ -15,7 +16,9 @@ from homelens.services.property_search import PropertyRepository
 
 
 class ContextProvider(Protocol):
-    def nearby(self, sale: HistoricalSale) -> ContextSection: ...
+    def nearby(
+        self, sale: HistoricalSale, query: NearbyQuery | None = None
+    ) -> ContextSection: ...
 
     def street_view(self, sale: HistoricalSale) -> ContextSection: ...
 
@@ -67,6 +70,20 @@ class PropertyContextService:
             "street_view": run("street_view", self._provider.street_view),
             "solar": run("solar", self._provider.solar),
         }
+
+    def nearby(self, property_id: str, query: NearbyQuery) -> ContextSection | None:
+        """Resolve only nearby places, so changing a category skips other calls."""
+        sale, source = self._repository.get(property_id)
+        if sale is None:
+            return None
+        name = SOURCES["nearby_places"]
+        coverage = {"category": query.category, "radius_m": query.radius_m}
+        if source.synthetic:
+            return section("unavailable", name, coverage, reason="synthetic_demo")
+        try:
+            return self._provider.nearby(sale, query)
+        except Exception:
+            return section("error", name, coverage, reason="provider_error")
 
     def street_view_image(self, property_id: str) -> tuple[bytes, str] | None:
         sale, source = self._repository.get(property_id)
