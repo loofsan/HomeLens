@@ -106,6 +106,7 @@ export type StreetViewData = {
   captured: string | null
   copyright: string | null
   distance_m: number
+  heading_deg: number | null
   image_url: string
   maps_url: string
 }

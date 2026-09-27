@@ -211,7 +211,9 @@ closest-building solar estimate on demand. The backend uses the recorded sale
 coordinate and returns independent `available`, `unavailable`, or `error`
 states from `GET /api/properties/<id>/context`. A Street View image is served
 through `GET /api/properties/<id>/street-view/image`, so the API key never
-appears in browser requests. Neither imagery nor the closest detected roof is
+appears in browser requests. The image uses the nearest outdoor panorama
+within 50 m and is turned toward the recorded sale coordinate, using the
+bearing from the panorama location reported by the free metadata request. Neither imagery nor the closest detected roof is
 verified as belonging to the recorded home. These provider results are not
 overlaid on the OpenStreetMap sale map.
 
