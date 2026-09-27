@@ -167,6 +167,53 @@ async function mockBackend(
       })
       return
     }
+    if (url.pathname.endsWith('/demographics')) {
+      const known = url.pathname.includes(sales[0].id)
+      const metric = (estimate: number, moe: number, percent?: number, percentMoe?: number) => ({
+        estimate: { value: estimate, status: 'available' },
+        estimate_margin_of_error: { value: moe, status: 'available' },
+        ...(percent === undefined ? {} : {
+          percent: { value: percent, status: 'available' },
+          percent_margin_of_error: { value: percentMoe, status: 'available' },
+        }),
+      })
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          property_id: url.pathname.split('/')[3],
+          source: 'U.S. Census Bureau American Community Survey',
+          geography: { kind: 'zcta', id: known ? '27703' : '27517', note: 'ZIP Code Tabulation Areas approximate USPS ZIP code delivery areas and may not match the recorded ZIP exactly.' },
+          dataset: '2020-2024 ACS 5-Year Data Profiles DP05 and DP03',
+          period: '2020-2024',
+          status: known ? 'available' : 'unavailable',
+          reason: known ? null : 'zcta_not_prepared',
+          ...(known ? {
+            metrics: {
+              total_population: metric(58409, 1900),
+              median_household_income_usd: metric(96900, 4100),
+              median_age_years: metric(34.9, 0.8),
+              under_18: metric(12800, 700, 21.9, 1.2),
+              age_65_and_over: metric(6100, 500, 10.4, 0.9),
+              white_alone_not_hispanic: metric(25800, 1100, 44.2, 2.0),
+              black_alone_not_hispanic: metric(20600, 1300, 35.3, 2.2),
+              hispanic_or_latino: metric(5100, 900, 8.7, 1.7),
+              asian_alone_not_hispanic: metric(3700, 500, 6.3, 1.0),
+              american_indian_alone_not_hispanic: metric(450, 200, 0.8, 0.3),
+              pacific_islander_alone_not_hispanic: {
+                estimate: { value: null, status: 'unavailable', source_token: '-' },
+                estimate_margin_of_error: { value: null, status: 'unavailable', source_token: '**' },
+                percent: { value: null, status: 'unavailable', source_token: '-' },
+                percent_margin_of_error: { value: null, status: 'unavailable', source_token: '**' },
+              },
+              other_race_alone_not_hispanic: metric(300, 150, 0.5, 0.3),
+              two_or_more_races_not_hispanic: metric(2400, 400, 4.2, 0.8),
+            },
+          } : {}),
+        }),
+      })
+      return
+    }
     if (url.pathname !== '/api/properties') {
       const sale = allSales.find((item) => url.pathname.endsWith(item.id))
       await route.fulfill({
@@ -419,11 +466,30 @@ test('crime layer shows beat counts with scope and keeps sales clickable', async
   await expect(page.locator('.leaflet-crime-beats-pane path')).toHaveCount(0)
 })
 
+test('sale details show sourced ZIP-area demographics with margins', async ({ page }, testInfo) => {
+  await mockBackend(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: /View 1 Main St/ }).click()
+  const area = page.getByRole('region', { name: 'Area demographics' })
+  await expect(area.getByText('ZIP code area 27703 · 2020-2024 ACS 5-year estimates')).toBeVisible()
+  await expect(area.getByText('$96,900')).toBeVisible()
+  await expect(area.getByText(/^Median household income · ±\u2060\$4,100$/)).toBeVisible()
+  await expect(area.getByText('34.9 years')).toBeVisible()
+  await expect(area.getByText('35.3%')).toBeVisible()
+  await expect(area.getByText('Not available')).toBeVisible()
+  await expect(area.getByText(/not this home or street/)).toBeVisible()
+  await area.scrollIntoViewIfNeeded()
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-demographics.png`) })
+  await page.getByRole('button', { name: 'Close sale details' }).click()
+  await page.getByRole('button', { name: /View 3 Main St/ }).click()
+  await expect(page.getByText('No census profile has been prepared for ZIP 27517.')).toBeVisible()
+})
+
 test('synthetic catalog stays visibly fictional and skips property providers', async ({ page }, testInfo) => {
   await mockBackend(page, { synthetic: true })
   const providerRequests: string[] = []
   page.on('request', (request) => {
-    if (/\/(valuation|context|street-view\/image)$/.test(request.url())) {
+    if (/\/(valuation|context|street-view\/image|demographics)$/.test(request.url())) {
       providerRequests.push(request.url())
     }
   })

@@ -446,6 +446,17 @@ h1 { margin-bottom: 0; font-size: 25px; line-height: 1.16; font-weight: 720; }
 .explore-area a { display: inline-flex; align-items: center; gap: 6px; color: var(--green-deep); font-size: 12px; font-weight: 700; text-decoration: none; }
 .explore-area a:hover { text-decoration: underline; }
 .explore-source { color: var(--muted); font-size: 11px; }
+.area-demographics { padding: 20px 23px; border-bottom: 1px solid var(--line); }
+.area-demographics h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; font-size: 13px; }
+.demographics-subheading { margin: 4px 0 8px; font-size: 12px; font-weight: 720; }
+.demographics-bars { margin: 0 0 12px; padding: 0; list-style: none; }
+.demographics-bars li { padding: 5px 0; }
+.demographics-bars li > div:first-child { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
+.demographics-bars span { color: var(--ink); }
+.demographics-bars strong { font-weight: 690; font-variant-numeric: tabular-nums; }
+.demographics-bars small { color: var(--muted); font-size: 10px; }
+.demographics-track { height: 6px; margin-top: 4px; border-radius: 3px; background: #edf1ef; overflow: hidden; }
+.demographics-track > div { height: 100%; border-radius: 3px; background: var(--green); }
 .detail-source { padding: 23px; }
 .detail-source h3 { margin-bottom: 13px; font-size: 13px; }
 .detail-source p { margin-bottom: 8px; color: var(--muted); font-size: 12px; line-height: 1.4; }
