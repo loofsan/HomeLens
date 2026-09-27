@@ -16,6 +16,7 @@ from homelens.api.demographics import demographics_bp
 from homelens.api.health import health_bp
 from homelens.api.properties import properties_bp
 from homelens.api.valuation import valuation_bp
+from homelens.api.value_trend import value_trend_bp
 from homelens.data.property_repository import SqlitePropertyRepository
 from homelens.services.conversational_search import ConversationalSearchService
 from homelens.services.crime_map import CrimeMapService
@@ -23,6 +24,7 @@ from homelens.services.demographics import DemographicsService
 from homelens.services.property_context import PropertyContextService
 from homelens.services.property_search import PropertySearchService
 from homelens.services.valuation import ValuationService
+from homelens.services.value_trend import ValueTrendService
 
 
 def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
@@ -52,6 +54,10 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
             "ACS_ZCTA_PROFILES_PATH", "data/processed/acs_zcta_profiles.json"
         ),
     )
+    app.config.setdefault(
+        "ZIP_VALUE_INDEX_PATH",
+        os.environ.get("ZIP_VALUE_INDEX_PATH", "data/processed/zip_value_index.json"),
+    )
     if test_config is not None:
         app.config.update(test_config)
 
@@ -73,6 +79,9 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
     app.extensions["demographics"] = DemographicsService(
         repository, Path(app.config["ACS_ZCTA_PROFILES_PATH"])
     )
+    app.extensions["value_trend"] = ValueTrendService(
+        repository, Path(app.config["ZIP_VALUE_INDEX_PATH"])
+    )
     app.register_blueprint(health_bp)
     app.register_blueprint(properties_bp)
     app.register_blueprint(context_bp)
@@ -80,4 +89,5 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
     app.register_blueprint(valuation_bp)
     app.register_blueprint(crime_bp)
     app.register_blueprint(demographics_bp)
+    app.register_blueprint(value_trend_bp)
     return app

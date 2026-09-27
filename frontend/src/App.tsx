@@ -24,6 +24,7 @@ import ExploreDurham from './ExploreDurham'
 import MapPanel from './MapPanel'
 import PropertyContext from './PropertyContext'
 import PropertyValuation from './PropertyValuation'
+import ValueTrend from './ValueTrend'
 import { PROPERTY_TYPE_LABELS } from './propertyTypes'
 import type {
   CatalogSource,
@@ -215,6 +216,7 @@ function SaleDetail({
             </section>
           )}
           {!source?.synthetic && <PropertyValuation key={sale.id} propertyId={sale.id} />}
+          {!source?.synthetic && <ValueTrend key={`trend-${sale.id}`} propertyId={sale.id} />}
           {!source?.synthetic && <AreaDemographics key={`demographics-${sale.id}`} propertyId={sale.id} />}
           {!source?.synthetic && <PropertyContext propertyId={sale.id} />}
           {!source?.synthetic && <ExploreDurham />}

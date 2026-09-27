@@ -167,6 +167,40 @@ async function mockBackend(
       })
       return
     }
+    if (url.pathname.endsWith('/value-trend')) {
+      const known = url.pathname.includes(sales[1].id)
+      const common = {
+        property_id: url.pathname.split('/')[3],
+        zip: known ? '27705' : '27703',
+        source: 'Supplied ZIP home value index (Zillow Research layout)',
+        series_label: 'ZHVI-style typical home value index (Zillow Research layout)',
+        variant_confirmed: false,
+        method_note: "Index adjustment multiplies the recorded sale price by the ZIP index change since the sale month. It assumes this home's value moved with its ZIP's typical home value and is not an appraisal or current market value.",
+        forecast: null,
+        forecast_note: 'No forward projection is served. In the rolling-origin backtest in notebooks/zip_value_outlook.ipynb, no method beat a no-change baseline at every 1-5 year horizon on both development and holdout origins.',
+      }
+      const months = ['2024-06', '2024-09', '2025-01', '2025-04']
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(known ? {
+          ...common,
+          status: 'available',
+          reason: null,
+          sale_month: '2024-06',
+          sale_price_usd: 500000,
+          latest_month: '2025-04',
+          latest_adjusted_value_usd: 506200,
+          index_change_pct: 1.2,
+          points: months.map((month, index) => ({
+            month,
+            index_value: 480000 + index * 2000,
+            adjusted_value_usd: [500000, 502100, 504300, 506200][index],
+          })),
+        } : { ...common, status: 'unavailable', reason: 'sale_after_index' }),
+      })
+      return
+    }
     if (url.pathname.endsWith('/demographics')) {
       const known = url.pathname.includes(sales[0].id)
       const metric = (estimate: number, moe: number, percent?: number, percentMoe?: number) => ({
@@ -485,11 +519,31 @@ test('sale details show sourced ZIP-area demographics with margins', async ({ pa
   await expect(page.getByText('No census profile has been prepared for ZIP 27517.')).toBeVisible()
 })
 
+test('value since sale shows an index adjustment with chart, table, and no forecast', async ({ page }, testInfo) => {
+  await mockBackend(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: /View 2 Main St/ }).click()
+  const trend = page.getByRole('region', { name: 'Value since sale' })
+  await expect(trend.getByText('$506,200')).toBeVisible()
+  await expect(trend.getByText(/Index-adjusted to Apr 2025 · \+1\.2% for ZIP 27705 since Jun 2024/)).toBeVisible()
+  await expect(trend.getByRole('img', { name: /Index-adjusted value from Jun 2024 to Apr 2025/ })).toBeVisible()
+  await expect(trend.getByText(/No five-year projection is shown/)).toBeVisible()
+  await expect(trend.getByText(/not an appraisal/)).toBeVisible()
+  await trend.scrollIntoViewIfNeeded()
+  await page.screenshot({ path: testInfo.outputPath(`${testInfo.project.name}-value-trend.png`) })
+  await trend.getByRole('button', { name: 'Table' }).click()
+  await expect(trend.getByRole('row')).toHaveCount(4)
+  await expect(trend.getByRole('cell', { name: '$504,300' })).toBeVisible()
+  await page.getByRole('button', { name: 'Close sale details' }).click()
+  await page.getByRole('button', { name: /View 1 Main St/ }).click()
+  await expect(page.getByText('This sale is newer than the last month of the value index.')).toBeVisible()
+})
+
 test('synthetic catalog stays visibly fictional and skips property providers', async ({ page }, testInfo) => {
   await mockBackend(page, { synthetic: true })
   const providerRequests: string[] = []
   page.on('request', (request) => {
-    if (/\/(valuation|context|street-view\/image|demographics)$/.test(request.url())) {
+    if (/\/(valuation|context|street-view\/image|demographics|value-trend)$/.test(request.url())) {
       providerRequests.push(request.url())
     }
   })

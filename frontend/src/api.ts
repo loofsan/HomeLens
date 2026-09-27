@@ -11,6 +11,7 @@ import type {
   SearchIntentResponse,
   SearchResponse,
   ValuationResponse,
+  ValueTrendResponse,
 } from './types'
 
 async function readResponse<T>(response: Response): Promise<T> {
@@ -126,5 +127,14 @@ export async function getDemographics(
 ): Promise<DemographicsResponse> {
   return readResponse<DemographicsResponse>(
     await fetch(`/api/properties/${encodeURIComponent(id)}/demographics`, { signal }),
+  )
+}
+
+export async function getValueTrend(
+  id: string,
+  signal: AbortSignal,
+): Promise<ValueTrendResponse> {
+  return readResponse<ValueTrendResponse>(
+    await fetch(`/api/properties/${encodeURIComponent(id)}/value-trend`, { signal }),
   )
 }

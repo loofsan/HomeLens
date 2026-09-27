@@ -225,3 +225,28 @@ export type DemographicsResponse = {
   period?: string
   metrics?: Record<string, AcsMetric>
 }
+
+export type ValueTrendPoint = {
+  month: string
+  index_value: number
+  adjusted_value_usd: number
+}
+
+export type ValueTrendResponse = {
+  property_id: string
+  zip: string
+  status: 'available' | 'unavailable'
+  reason: string | null
+  source?: string
+  series_label?: string
+  variant_confirmed?: boolean
+  method_note?: string
+  forecast?: null
+  forecast_note?: string
+  sale_month?: string
+  sale_price_usd?: number
+  latest_month?: string
+  latest_adjusted_value_usd?: number
+  index_change_pct?: number
+  points?: ValueTrendPoint[]
+}
