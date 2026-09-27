@@ -6,11 +6,16 @@ from typing import cast
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
+from homelens.adapters.openai_search import SearchProviderError
 from homelens.data.property_repository import CatalogUnavailableError
 from homelens.domain.property_context import (
     NearbyQuery,
     NearbyQueryError,
     ProviderRequestError,
+)
+from homelens.services.nearby_interpreter import (
+    InvalidNearbyRequest,
+    NearbyInterpreter,
 )
 from homelens.services.property_context import PropertyContextService
 
@@ -80,5 +85,36 @@ def street_view_image(property_id: str) -> Response | tuple[Response, int]:
         return jsonify({"error": {"code": "property_not_found"}}), 404
     content, media_type = image
     response = Response(content, mimetype=media_type)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@context_bp.post("/api/nearby/interpret")
+def interpret_nearby() -> Response | tuple[Response, int]:
+    if request.content_length is not None and request.content_length > 1024:
+        return jsonify({"error": {"code": "request_too_large"}}), 413
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or set(payload) != {"query"}:
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "invalid_request",
+                        "message": "Expected a nearby request.",
+                    }
+                }
+            ),
+            400,
+        )
+    interpreter = cast(NearbyInterpreter, current_app.extensions["nearby_interpreter"])
+    try:
+        result = interpreter.interpret(payload["query"])
+    except InvalidNearbyRequest as exc:
+        return jsonify({"error": {"code": "invalid_request", "message": str(exc)}}), 400
+    except SearchProviderError as exc:
+        return jsonify(
+            {"error": {"code": "ai_search_failed", "message": str(exc)}}
+        ), 502
+    response = jsonify(result)
     response.headers["Cache-Control"] = "no-store"
     return response

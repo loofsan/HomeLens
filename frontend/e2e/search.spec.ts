@@ -547,9 +547,34 @@ test('nearby places switch category and radius without reloading other context',
   await page.getByRole('button', { name: 'Bars' }).click()
   await expect(page.getByText('No matching places were found in this area.')).toBeVisible()
 
+  await page.route('**/api/nearby/interpret', async (route) => {
+    const query = (route.request().postDataJSON() as { query: string }).query
+    const body = query === 'coffee'
+      ? { status: 'matched', category: 'restaurants', method: 'keyword' }
+      : query === 'bars and restaurants'
+        ? { status: 'ambiguous', category: null, method: 'keyword', options: ['restaurants', 'bars'] }
+        : { status: 'no_match', category: null, method: null }
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+  })
+  const describe = page.getByLabel('Describe a place to find nearby')
+  await describe.fill('coffee')
+  await page.getByRole('button', { name: 'Find nearby' }).click()
+  await expect(page.getByText('Showing Restaurants for “coffee”.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Restaurants' }).first()).toHaveAttribute('aria-pressed', 'true')
+  await describe.fill('bars and restaurants')
+  await page.getByRole('button', { name: 'Find nearby' }).click()
+  const suggested = page.getByRole('group', { name: 'Suggested categories' })
+  await expect(suggested.getByRole('button')).toHaveCount(2)
+  await suggested.getByRole('button', { name: 'Bars' }).click()
+  await describe.fill('a barber')
+  await page.getByRole('button', { name: 'Find nearby' }).click()
+  await expect(page.getByText('No place category matches “a barber”. Try one of the categories above.')).toBeVisible()
+
   expect(nearbyRequests).toEqual([
     '?category=schools&radius_m=1500',
     '?category=schools&radius_m=5000',
+    '?category=bars&radius_m=5000',
+    '?category=restaurants&radius_m=5000',
     '?category=bars&radius_m=5000',
   ])
   expect(contextCalls).toBe(1)

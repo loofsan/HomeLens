@@ -4,6 +4,7 @@ import type {
   CrimeCategory,
   DemographicsResponse,
   DetailResponse,
+  NearbyInterpretation,
   NearbyPlace,
   MapBounds,
   PropertyContextResponse,
@@ -136,5 +137,19 @@ export async function getValueTrend(
 ): Promise<ValueTrendResponse> {
   return readResponse<ValueTrendResponse>(
     await fetch(`/api/properties/${encodeURIComponent(id)}/value-trend`, { signal }),
+  )
+}
+
+export async function interpretNearby(
+  query: string,
+  signal: AbortSignal,
+): Promise<NearbyInterpretation> {
+  return readResponse<NearbyInterpretation>(
+    await fetch('/api/nearby/interpret', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+      signal,
+    }),
   )
 }
