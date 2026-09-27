@@ -4,10 +4,14 @@ from __future__ import annotations
 
 from typing import cast
 
-from flask import Blueprint, Response, current_app, jsonify
+from flask import Blueprint, Response, current_app, jsonify, request
 
 from homelens.data.property_repository import CatalogUnavailableError
-from homelens.domain.property_context import ProviderRequestError
+from homelens.domain.property_context import (
+    NearbyQuery,
+    NearbyQueryError,
+    ProviderRequestError,
+)
 from homelens.services.property_context import PropertyContextService
 
 context_bp = Blueprint("context", __name__)
@@ -25,6 +29,33 @@ def _catalog_unavailable(_error: CatalogUnavailableError) -> tuple[Response, int
 @context_bp.get("/api/properties/<property_id>/context")
 def property_context(property_id: str) -> Response | tuple[Response, int]:
     result = _service().get(property_id)
+    if result is None:
+        return jsonify({"error": {"code": "property_not_found"}}), 404
+    response = jsonify(result)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@context_bp.get("/api/properties/<property_id>/context/nearby")
+def nearby_places(property_id: str) -> Response | tuple[Response, int]:
+    try:
+        query = NearbyQuery.parse(
+            request.args.get("category"), request.args.get("radius_m")
+        )
+    except NearbyQueryError as exc:
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "invalid_query",
+                        "field": exc.field,
+                        "message": str(exc),
+                    }
+                }
+            ),
+            400,
+        )
+    result = _service().nearby(property_id, query)
     if result is None:
         return jsonify({"error": {"code": "property_not_found"}}), 404
     response = jsonify(result)

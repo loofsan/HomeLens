@@ -75,6 +75,9 @@ def test_demo_api_labels_examples_and_never_calls_provider_or_model(
         for name in ("nearby_places", "street_view", "solar"):
             assert context.json[name]["status"] == "unavailable"
             assert context.json[name]["reason"] == "synthetic_demo"
+        nearby = client.get(f"/api/properties/{sale_id}/context/nearby?category=parks")
+        assert nearby.status_code == 200
+        assert nearby.json["reason"] == "synthetic_demo"
         image = client.get(f"/api/properties/{sale_id}/street-view/image")
         assert image.status_code == 422
         assert image.json["error"]["code"] == "synthetic_demo"

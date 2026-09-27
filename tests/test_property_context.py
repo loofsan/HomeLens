@@ -338,3 +338,74 @@ def test_transport_sanitizes_timeout_and_no_coverage() -> None:
         with pytest.raises(ProviderRequestError) as not_found:
             transport.json("GET", SOLAR_URL)
     assert not_found.value.reason == "not_covered"
+
+
+def test_nearby_category_and_radius_are_validated_and_scoped(tmp_path: Path) -> None:
+    app = _app(tmp_path)
+    transport = FakeTransport()
+    _with_transport(app, transport)
+    client = app.test_client()
+    response = client.get(
+        f"/api/properties/{SALE_ID}/context/nearby?category=schools&radius_m=5000"
+    )
+    assert response.status_code == 200
+    assert response.headers["Cache-Control"] == "no-store"
+    assert b"secret-key" not in response.data
+    nearby = response.get_json()
+    assert nearby["status"] == "available"
+    assert nearby["coverage"]["category"] == "schools"
+    assert nearby["coverage"]["radius_m"] == 5000
+    assert nearby["coverage"]["types"] == [
+        "primary_school",
+        "secondary_school",
+        "school",
+    ]
+    assert len(transport.calls) == 1
+    body = transport.calls[0][2]["body"]
+    assert body["includedTypes"] == ["primary_school", "secondary_school", "school"]
+    assert body["locationRestriction"]["circle"]["radius"] == 5000
+
+    default = client.get(f"/api/properties/{SALE_ID}/context/nearby").get_json()
+    assert default["coverage"]["category"] == "everyday"
+    assert default["coverage"]["radius_m"] == 1500
+    assert transport.calls[1][2]["body"]["includedTypes"] == [
+        "supermarket",
+        "park",
+        "school",
+        "pharmacy",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("query", "field"),
+    [
+        ("category=casinos", "category"),
+        ("category=", None),
+        ("radius_m=1000", "radius_m"),
+        ("radius_m=-800", "radius_m"),
+        ("radius_m=1e3", "radius_m"),
+    ],
+)
+def test_invalid_nearby_options_are_rejected_without_provider_calls(
+    tmp_path: Path, query: str, field: str | None
+) -> None:
+    app = _app(tmp_path)
+    transport = FakeTransport()
+    _with_transport(app, transport)
+    response = app.test_client().get(
+        f"/api/properties/{SALE_ID}/context/nearby?{query}"
+    )
+    if field is None:
+        assert response.status_code == 200
+        return
+    assert response.status_code == 400
+    assert response.get_json()["error"]["field"] == field
+    assert transport.calls == []
+
+
+def test_nearby_route_handles_missing_sale_and_missing_key(tmp_path: Path) -> None:
+    client = _app(tmp_path).test_client()
+    assert client.get("/api/properties/unknown/context/nearby").status_code == 404
+    nearby = client.get(f"/api/properties/{SALE_ID}/context/nearby").get_json()
+    assert nearby["status"] == "unavailable"
+    assert nearby["reason"] == "not_configured"

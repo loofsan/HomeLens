@@ -217,6 +217,14 @@ bearing from the panorama location reported by the free metadata request. Neithe
 verified as belonging to the recorded home. These provider results are not
 overlaid on the OpenStreetMap sale map.
 
+Nearby places default to everyday amenities (supermarkets, parks, schools,
+pharmacies) within 1,500 m. `GET /api/properties/<id>/context/nearby` refreshes
+only that section with an optional `category` (`everyday`, `schools`,
+`childcare`, `parks`, `grocery`, `restaurants`, `bars`, `shopping`, `health`,
+`libraries`, `fitness`, `transit`) and `radius_m` (800, 1500, 3000, or 5000).
+Each category maps to a fixed list of Places API (New) types; other values
+return 400 without a provider call.
+
 For live results, enable billing and the Places API (New), Street View Static
 API, and Solar API in a Google Maps
 Platform project. Set `GOOGLE_MAPS_API_KEY` in the Flask server environment;

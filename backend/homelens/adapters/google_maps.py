@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 from homelens.domain.property import HistoricalSale
 from homelens.domain.property_context import (
     ContextSection,
+    NearbyQuery,
     ProviderRequestError,
     section,
 )
@@ -22,10 +23,9 @@ from homelens.domain.property_context import (
 PLACES_URL = "https://places.googleapis.com/v1/places:searchNearby"
 STREET_VIEW_URL = "https://maps.googleapis.com/maps/api/streetview"
 SOLAR_URL = "https://solar.googleapis.com/v1/buildingInsights:findClosest"
-PLACES_RADIUS_M = 1500
 STREET_VIEW_RADIUS_M = 50
 PANO_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,128}")
-PLACES_TYPES = ("supermarket", "park", "school", "pharmacy")
+PLACES_MAX_RESULTS = 10
 PLACES_FIELDS = (
     "places.displayName,places.location,places.primaryType,"
     "places.googleMapsUri,places.attributions"
@@ -175,11 +175,15 @@ class GoogleContextProvider:
         self._api_key = api_key or None
         self._transport = transport or UrlLibGoogleTransport()
 
-    def nearby(self, sale: HistoricalSale) -> ContextSection:
+    def nearby(
+        self, sale: HistoricalSale, query: NearbyQuery | None = None
+    ) -> ContextSection:
+        query = query or NearbyQuery()
         source = "Google Maps Places API (New)"
         coverage = {
-            "radius_m": PLACES_RADIUS_M,
-            "types": list(PLACES_TYPES),
+            "category": query.category,
+            "radius_m": query.radius_m,
+            "types": list(query.types),
             "ranking": "distance",
             "distance_kind": "straight_line",
         }
@@ -194,8 +198,8 @@ class GoogleContextProvider:
                     "X-Goog-FieldMask": PLACES_FIELDS,
                 },
                 body={
-                    "includedTypes": list(PLACES_TYPES),
-                    "maxResultCount": 8,
+                    "includedTypes": list(query.types),
+                    "maxResultCount": PLACES_MAX_RESULTS,
                     "rankPreference": "DISTANCE",
                     "locationRestriction": {
                         "circle": {
@@ -203,7 +207,7 @@ class GoogleContextProvider:
                                 "latitude": sale.latitude,
                                 "longitude": sale.longitude,
                             },
-                            "radius": PLACES_RADIUS_M,
+                            "radius": query.radius_m,
                         }
                     },
                 },
